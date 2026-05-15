@@ -1,0 +1,2063 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Kartu Absen Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Plus Jakarta Sans',Arial,sans-serif; background:#080f1e; min-height:100vh; overflow-x:hidden; color:white; }
+
+/* ═══ SPLASH ═══ */
+#splash { position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:#080f1e;transition:opacity .55s ease,transform .55s ease; }
+#splash.out { opacity:0;transform:scale(1.05);pointer-events:none; }
+.s-bg { position:absolute;inset:0;overflow:hidden; }
+.orb { position:absolute;border-radius:50%;filter:blur(80px);opacity:.28;animation:drift 9s ease-in-out infinite; }
+.orb1 { width:480px;height:480px;background:#1d4ed8;top:-140px;left:-100px; }
+.orb2 { width:360px;height:360px;background:#0d9488;bottom:-100px;right:-80px;animation-delay:3.5s; }
+.orb3 { width:220px;height:220px;background:#dc2626;top:45%;left:58%;animation-delay:6s; }
+@keyframes drift { 0%,100%{transform:translate(0,0)} 50%{transform:translate(18px,-22px)} }
+.s-grid { position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px; }
+.s-inner { position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;animation:riseIn .85s cubic-bezier(.22,1,.36,1) both; }
+@keyframes riseIn { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+.s-badge { display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.28);color:#fca5a5;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:5px 15px;border-radius:100px;margin-bottom:18px; }
+.s-dot { width:6px;height:6px;background:#ef4444;border-radius:50%;animation:blink 1.5s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
+.s-clock { display:flex;flex-direction:column;align-items:center;margin-bottom:22px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:14px 32px;backdrop-filter:blur(12px); }
+.s-time { font-size:42px;font-weight:800;letter-spacing:-1px;color:white;line-height:1;font-variant-numeric:tabular-nums; }
+.s-date { font-size:11px;color:#64748b;margin-top:4px;letter-spacing:.5px; }
+.s-day  { font-size:10px;color:#ef4444;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px; }
+.s-title { font-size:clamp(36px,9vw,68px);font-weight:800;line-height:1;text-align:center;letter-spacing:-2px;margin-bottom:8px; }
+.s-title .t1 { display:block;color:#f1f5f9; }
+.s-title .t2 { display:block;background:linear-gradient(90deg,#ef4444,#f97316,#ef4444);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:sweep 3s linear infinite; }
+@keyframes sweep { from{background-position:0% center} to{background-position:200% center} }
+.s-sub { font-size:13px;color:#475569;margin-bottom:6px;letter-spacing:.3px; }
+.s-by  { font-size:11px;color:#ef4444;font-weight:700;letter-spacing:1.5px;margin-bottom:20px;opacity:.8; }
+.s-line { width:44px;height:2px;background:linear-gradient(90deg,transparent,#ef4444,transparent);margin-bottom:28px; }
+.s-btn { display:flex;align-items:center;gap:10px;padding:15px 40px;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;border-radius:100px;color:white;font-family:inherit;font-size:14px;font-weight:700;letter-spacing:.6px;cursor:pointer;box-shadow:0 0 36px rgba(239,68,68,.28);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden; }
+.s-btn::after { content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.18),transparent);opacity:0;transition:opacity .2s; }
+.s-btn:hover { transform:translateY(-3px);box-shadow:0 0 52px rgba(239,68,68,.42); }
+.s-btn:hover::after { opacity:1; }
+.s-arr { width:18px;height:18px;border:2px solid rgba(255,255,255,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;transition:transform .2s; }
+.s-btn:hover .s-arr { transform:translateX(3px); }
+
+/* ═══ APP ═══ */
+#app { display:flex;flex-direction:column;align-items:center;padding:32px 18px 88px;min-height:100vh;visibility:hidden;opacity:0;transition:opacity .5s ease;position:relative;background:radial-gradient(ellipse 55% 35% at 8% 0%,rgba(29,78,216,.3) 0%,transparent 55%),radial-gradient(ellipse 55% 35% at 92% 100%,rgba(13,148,136,.2) 0%,transparent 55%),#080f1e; }
+#app.show { visibility:visible;opacity:1; }
+#app::before { content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:40px 40px;pointer-events:none; }
+.a-header { display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:28px;position:relative;z-index:1;animation:fadeUp .6s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.a-pill { display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.2);color:#fca5a5;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 12px;border-radius:100px; }
+.a-header h1 { font-size:22px;font-weight:800;color:white;letter-spacing:-.4px; }
+.a-header p { font-size:12px;color:#475569; }
+
+/* ═══ CARD ═══ */
+.card {
+  width:242px; height:385px;
+  border-radius:18px; overflow:hidden; position:relative;
+  border:2px solid rgba(0,0,0,0.25);
+  animation:float 4s ease-in-out infinite, fadeUp .7s ease both .1s;
+  z-index:1; box-shadow:0 24px 56px rgba(0,0,0,.55);
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+
+#bgCanvas { position:absolute;inset:0;width:100%;height:100%;z-index:0; }
+#motifSvg { position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none; }
+.overlay { position:absolute;inset:0;background:rgba(255,255,255,0.0);z-index:3;pointer-events:none; }
+.content { position:relative;z-index:10;text-align:center;padding-top:45px; }
+
+/* PHOTO */
+.photo { width:98px;height:118px;margin:auto;border-radius:14px;overflow:hidden;border:3px solid #f8f8f8;position:relative;background:#dde3ea;flex-shrink:0; }
+.photo-placeholder { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#dde3ea; }
+.photo-placeholder svg { width:100%;height:100%; }
+#photoPreview { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none; }
+
+/* TEXTS */
+.name { margin-top:14px;font-size:15px;font-weight:900;letter-spacing:0.3px;color:#222;font-family:'Arial Black',Arial,sans-serif; }
+.id   { margin-top:7px;font-size:17px;font-weight:900;color:#ef4444;font-family:'Arial Black',Arial,sans-serif;letter-spacing:0.5px; }
+
+/* QR */
+.qr { margin-top:10px;display:flex;justify-content:center; }
+.qr-placeholder { width:74px;height:74px;background:#f0f0f0;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px dashed #ccc; }
+.qr-placeholder svg { width:32px;height:32px;opacity:.45; }
+#qrPreview { width:74px;height:74px;object-fit:contain;background:white;padding:2px;border-radius:8px;display:none; }
+
+.footer {
+  margin-top:8px;
+  color:white;
+  font-size:9px;
+  font-weight:bold;
+  letter-spacing:0.3px;
+  -webkit-text-stroke: 0px transparent;
+  paint-order: stroke fill;
+}
+.footer.stroke-on {
+  -webkit-text-stroke: 2.5px rgba(0,0,0,0.55);
+  paint-order: stroke fill;
+}
+.footer.no-stroke {
+  -webkit-text-stroke: 0px transparent;
+}
+
+/* ═══ PANEL ═══ */
+.panel { width:270px;margin-top:28px;border-radius:24px;background:rgba(15,23,42,.88);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.06);overflow:hidden;box-shadow:0 20px 52px rgba(0,0,0,.5);position:relative;z-index:1;animation:fadeUp .7s ease both .2s; }
+.panel-bar { height:3px;background:linear-gradient(90deg,#ef4444,#f97316,#ef4444);background-size:200%;animation:sweep 3s linear infinite; }
+.panel-inner { padding:20px 18px 22px; }
+.p-head { display:flex;align-items:center;gap:11px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:18px; }
+.p-icon { width:38px;height:38px;border-radius:11px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0; }
+.p-title { font-size:15px;font-weight:800;color:white; }
+.p-sub { font-size:10px;color:#475569;margin-top:2px; }
+.sec { font-size:9px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#334155;margin:16px 0 8px; }
+.sec:first-of-type { margin-top:0; }
+.igroup { margin-bottom:8px;position:relative; }
+.igroup label { display:block;font-size:10px;font-weight:600;color:#64748b;margin-bottom:5px; }
+.igroup input[type="text"] { width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 13px;color:white;font-family:inherit;font-size:13px;outline:none;transition:.2s; }
+.igroup input[type="text"]:focus { border-color:rgba(239,68,68,.35);background:rgba(255,255,255,.07);box-shadow:0 0 0 3px rgba(239,68,68,.08); }
+.igroup input[type="text"]::placeholder { color:#1e293b; }
+.uarea { width:100%;background:rgba(255,255,255,.03);border:1.5px dashed rgba(255,255,255,.08);border-radius:12px;overflow:hidden;position:relative;transition:.2s;cursor:pointer;margin-bottom:8px; }
+.uarea:hover { border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.03); }
+.uarea input[type="file"] { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2; }
+.u-inner { display:flex;align-items:center;gap:9px;padding:10px 12px; }
+.u-ic { width:30px;height:30px;background:rgba(255,255,255,.05);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0; }
+.u-txt strong { display:block;font-size:11px;color:#94a3b8;margin-bottom:1px; }
+.u-txt span { font-size:10px;color:#334155; }
+.crow { display:flex;gap:8px;margin-bottom:4px; }
+.cg { flex:1; }
+.cg label { font-size:10px;font-weight:600;color:#64748b;display:block;margin-bottom:5px; }
+.cswatch { display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:9px 11px;cursor:pointer;transition:.2s;position:relative; }
+.cswatch:hover { border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.07); }
+.sw { width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.18);flex-shrink:0; }
+.cl { font-size:10px;color:#334155; }
+input[type="color"] { position:absolute;opacity:0;width:0;height:0;pointer-events:none; }
+
+/* ─── COLOR PRESETS ─── */
+.color-presets { display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;margin-bottom:2px; }
+.cp { width:22px;height:22px;border-radius:6px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:.15s;flex-shrink:0;position:relative; }
+.cp:hover { transform:scale(1.18);border-color:rgba(255,255,255,.38); }
+.cp.active-preset { border-color:white;box-shadow:0 0 0 2px rgba(255,255,255,.35); }
+.cp[title]::after { content:attr(title);position:absolute;bottom:26px;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;font-size:9px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s; }
+.cp[title]:hover::after { opacity:1; }
+.reset-color-row { display:flex;gap:6px;margin-top:8px; }
+.reset-btn { flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#94a3b8;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;letter-spacing:.3px; }
+.reset-btn:hover { background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.28);color:#fca5a5; }
+.reset-btn .rb-ic { font-size:11px; }
+
+/* ═══ MOTIF PICKER ═══ */
+.motif-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:4px; }
+.motif-btn { display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 5px 7px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;cursor:pointer;transition:.2s;position:relative;overflow:hidden; }
+.motif-btn:hover { border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.05); }
+.motif-btn.active { border-color:#ef4444;background:rgba(239,68,68,.12);box-shadow:0 0 0 1px rgba(239,68,68,.2); }
+.motif-btn.active::after { content:'✓';position:absolute;top:3px;right:5px;font-size:8px;color:#ef4444;font-weight:800; }
+.motif-preview { width:48px;height:34px;border-radius:5px;overflow:hidden;flex-shrink:0;background:white; }
+.motif-preview svg { width:100%;height:100%;display:block; }
+.motif-label { font-size:8.5px;color:#64748b;font-weight:600;letter-spacing:.3px;text-align:center; }
+.motif-btn.active .motif-label { color:#fca5a5; }
+
+/* Download */
+.dl-btn { display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:18px;box-shadow:0 0 28px rgba(239,68,68,.28);transition:transform .2s,box-shadow .2s; }
+.dl-btn:hover { transform:translateY(-2px);box-shadow:0 0 42px rgba(239,68,68,.4); }
+.dl-btn:active { transform:scale(.98); }
+.dl-btn:disabled { opacity:.6;cursor:not-allowed;transform:none; }
+
+/* Delete image button */
+.del-btn { display:block;width:100%;padding:7px 10px;margin-top:4px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);border-radius:10px;color:#fca5a5;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;letter-spacing:.3px;text-align:center; }
+.del-btn:hover { background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.38); }
+
+/* Support FAB — bottom right corner */
+.support-fab { position:fixed;bottom:20px;right:16px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:8px; }
+.support-fab-btn { display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:100px;background:rgba(15,23,42,.95);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);cursor:pointer;box-shadow:0 4px 22px rgba(0,0,0,.55);transition:.2s;text-decoration:none;color:white;white-space:nowrap; }
+.support-fab-btn:hover { background:rgba(30,41,59,.98);border-color:rgba(255,255,255,.22);transform:translateY(-2px);box-shadow:0 6px 28px rgba(0,0,0,.65); }
+.support-fab-btn .fab-ic { font-size:14px; }
+.support-fab-btn .fab-txt { font-size:11px;font-weight:700;letter-spacing:.4px;color:#e2e8f0; }
+.support-fab-btn.saweria-fab { border-color:rgba(251,146,60,.35); }
+.support-fab-btn.saweria-fab:hover { border-color:rgba(251,146,60,.6); }
+
+/* ═══ RESPONSIVE DESKTOP LAYOUT ═══ */
+@media (min-width: 720px) {
+  #app { padding:40px 40px 60px; align-items:flex-start; }
+  .a-header { align-items:flex-start; margin-bottom:32px; }
+  .desktop-row {
+    display:flex;
+    flex-direction:row;
+    align-items:flex-start;
+    gap:48px;
+    width:100%;
+    max-width:960px;
+    margin:0 auto;
+  }
+  .desktop-left {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    position:sticky;
+    top:32px;
+    flex-shrink:0;
+  }
+  .desktop-right {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    min-width:0;
+  }
+  .panel { width:100%; margin-top:0; }
+  .gammascan-card { width:100%; }
+  .a-header { width:100%; max-width:960px; margin-left:auto; margin-right:auto; }
+}
+@media (max-width: 719px) {
+  .desktop-row { display:contents; }
+  .desktop-left { display:contents; }
+  .desktop-right { display:contents; }
+}
+
+/* GammaScan card — below panel */
+.gammascan-card { width:270px;margin-top:14px;border-radius:18px;background:rgba(15,23,42,.88);backdrop-filter:blur(24px);border:1px solid rgba(52,211,153,.18);overflow:hidden;box-shadow:0 12px 36px rgba(0,0,0,.4);position:relative;z-index:1;animation:fadeUp .7s ease both .3s;text-decoration:none; display:block; }
+.gammascan-card:hover { border-color:rgba(52,211,153,.42);transform:translateY(-2px);transition:.2s; }
+.gammascan-bar { height:3px;background:linear-gradient(90deg,#10b981,#34d399,#10b981);background-size:200%;animation:sweep 3s linear infinite; }
+.gammascan-inner { display:flex;align-items:center;gap:13px;padding:14px 16px; }
+.gammascan-icon { width:42px;height:42px;border-radius:12px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.22);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+.gammascan-txt strong { display:block;font-size:12px;font-weight:800;color:white;margin-bottom:2px; }
+.gammascan-txt span { font-size:10px;color:#64748b;line-height:1.4; }
+.gammascan-arrow { margin-left:auto;font-size:16px;color:#34d399;flex-shrink:0; }
+
+.support-section { display:none; }
+.a-foot { margin-top:24px;font-size:10px;color:#1e293b;text-align:center;position:relative;z-index:1; }
+
+/* ─── TOGGLE ROW ─── */
+.toggle-row { display:flex;gap:7px; }
+.toggle-opt { flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px 6px;border-radius:12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);cursor:pointer;transition:.2s; }
+.toggle-opt:hover { border-color:rgba(239,68,68,.28);background:rgba(239,68,68,.04); }
+.toggle-opt.active { border-color:#ef4444;background:rgba(239,68,68,.12);box-shadow:0 0 0 1px rgba(239,68,68,.2); }
+.tog-ic  { font-size:10px;color:#64748b; }
+.tog-lbl { font-size:9.5px;font-weight:600;color:#64748b;letter-spacing:.3px; }
+.toggle-opt.active .tog-ic,
+.toggle-opt.active .tog-lbl { color:#fca5a5; }
+
+/* ─── UPLOAD WITH CROP BUTTON ─── */
+.upload-with-crop { margin-bottom:8px; }
+.uarea-wrap { position:relative; }
+.crop-btn {
+  display:none;
+  width:100%;
+  align-items:center;justify-content:center;gap:6px;
+  padding:8px 12px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.2);
+  border-radius:0 0 12px 12px;
+  color:#fca5a5;font-size:10px;font-weight:700;
+  cursor:pointer;transition:.2s;letter-spacing:.4px;
+  border-top:none;
+}
+.crop-btn:hover { background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.4); }
+.crop-btn.visible { display:flex; }
+.uarea-wrap .uarea { border-radius:12px 12px 0 0;margin-bottom:0; }
+.uarea-wrap .uarea.no-crop { border-radius:12px;margin-bottom:0; }
+
+/* ═══ CROP MODAL ═══ */
+.crop-modal-overlay {
+  position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;
+  padding:16px;
+}
+.crop-modal-overlay.open { display:flex; }
+.crop-modal {
+  background:#0f172a;border:1px solid rgba(255,255,255,.1);
+  border-radius:24px;overflow:hidden;width:100%;max-width:360px;
+  box-shadow:0 32px 80px rgba(0,0,0,.7);
+}
+.crop-modal-bar { height:3px;background:linear-gradient(90deg,#ef4444,#f97316,#ef4444);background-size:200%;animation:sweep 3s linear infinite; }
+.crop-modal-head { padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,.06); display:flex;align-items:center;justify-content:space-between; }
+.crop-modal-title { font-size:14px;font-weight:800;color:white; }
+.crop-modal-sub { font-size:10px;color:#475569;margin-top:2px; }
+.crop-close { width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;font-size:14px;transition:.2s; }
+.crop-close:hover { background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:#fca5a5; }
+.crop-canvas-wrap {
+  position:relative;overflow:hidden;
+  background:#060d1a;
+  width:100%;height:280px;
+  cursor:crosshair;touch-action:none;
+  user-select:none;
+}
+#cropCanvas { display:block;width:100%;height:100%;object-fit:contain; }
+.crop-selection {
+  position:absolute;border:2px solid #ef4444;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.5);
+  cursor:move;
+  pointer-events:all;
+}
+/* Rule-of-thirds grid lines inside crop selection */
+.crop-grid-line {
+  position:absolute;
+  pointer-events:none;
+  background:rgba(255,255,255,0.30);
+}
+.crop-grid-line.h { left:0;right:0;height:1px; }
+.crop-grid-line.v { top:0;bottom:0;width:1px; }
+.crop-grid-line.h1 { top:33.333%; }
+.crop-grid-line.h2 { top:66.666%; }
+.crop-grid-line.v1 { left:33.333%; }
+.crop-grid-line.v2 { left:66.666%; }
+.crop-handle {
+  position:absolute;width:10px;height:10px;
+  background:#ef4444;border:1.5px solid white;border-radius:2px;
+}
+.ch-tl { top:-5px;left:-5px;cursor:nwse-resize; }
+.ch-tr { top:-5px;right:-5px;cursor:nesw-resize; }
+.ch-bl { bottom:-5px;left:-5px;cursor:nesw-resize; }
+.ch-br { bottom:-5px;right:-5px;cursor:nwse-resize; }
+.ch-tc { top:-5px;left:50%;transform:translateX(-50%);cursor:ns-resize; }
+.ch-bc { bottom:-5px;left:50%;transform:translateX(-50%);cursor:ns-resize; }
+.ch-ml { top:50%;left:-5px;transform:translateY(-50%);cursor:ew-resize; }
+.ch-mr { top:50%;right:-5px;transform:translateY(-50%);cursor:ew-resize; }
+.crop-controls { padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(255,255,255,.06); }
+.crop-slider-row { display:flex;align-items:center;gap:10px; }
+.crop-slider-label { font-size:10px;color:#64748b;font-weight:600;width:60px;flex-shrink:0; }
+.crop-slider { flex:1;-webkit-appearance:none;height:4px;border-radius:4px;background:rgba(255,255,255,.1);outline:none;cursor:pointer; }
+.crop-slider::-webkit-slider-thumb { -webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid white;cursor:pointer; }
+.crop-slider::-moz-range-thumb { width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid white;cursor:pointer;border:none; }
+.crop-slider-val { font-size:10px;color:#ef4444;font-weight:700;width:34px;text-align:right;flex-shrink:0; }
+.crop-ratio-row { display:flex;gap:6px; }
+.crop-ratio-btn { flex:1;padding:6px 4px;border:1px solid rgba(255,255,255,.07);border-radius:9px;background:rgba(255,255,255,.04);color:#64748b;font-size:9.5px;font-weight:600;cursor:pointer;text-align:center;transition:.2s; }
+.crop-ratio-btn:hover { border-color:rgba(239,68,68,.3);color:#fca5a5; }
+.crop-ratio-btn.active { border-color:#ef4444;background:rgba(239,68,68,.12);color:#fca5a5; }
+.crop-actions { display:flex;gap:8px;padding:0 16px 16px; }
+.crop-cancel { flex:1;padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:transparent;color:#64748b;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.2s; }
+.crop-cancel:hover { border-color:rgba(255,255,255,.18);color:#94a3b8; }
+.crop-apply { flex:2;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.2s;box-shadow:0 0 20px rgba(239,68,68,.25); }
+.crop-apply:hover { transform:translateY(-1px);box-shadow:0 0 30px rgba(239,68,68,.4); }
+
+/* Delete button */
+.del-btn { width:100%;margin-top:5px;padding:8px 12px;border:1px solid rgba(239,68,68,.25);border-radius:12px;background:rgba(239,68,68,.06);color:#fca5a5;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;letter-spacing:.3px; }
+.del-btn:hover { background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.45); }
+</style>
+</head>
+<body>
+
+<!-- ═══ FIXED SUPPORT BUTTON (top right, only Saweria) ═══ -->
+<div class="support-fab" id="supportFab" style="display:none;">
+  <a class="support-fab-btn saweria-fab" href="https://saweria.co/SuperDitzz" target="_blank" rel="noopener">
+    <span class="fab-ic">☕</span>
+    <span class="fab-txt">Support Me</span>
+  </a>
+</div>
+
+<!-- ═══ CROP MODAL ═══ -->
+<div class="crop-modal-overlay" id="cropModal">
+  <div class="crop-modal">
+    <div class="crop-modal-bar"></div>
+    <div class="crop-modal-head">
+      <div>
+        <div class="crop-modal-title" id="cropModalTitle">✂️ Crop Gambar</div>
+        <div class="crop-modal-sub">Seret sudut untuk mengatur area crop</div>
+      </div>
+      <div class="crop-close" onclick="closeCropModal()">✕</div>
+    </div>
+    <div class="crop-canvas-wrap" id="cropCanvasWrap">
+      <canvas id="cropCanvas"></canvas>
+      <div class="crop-selection" id="cropSelection">
+        <div class="crop-grid-line h h1"></div>
+        <div class="crop-grid-line h h2"></div>
+        <div class="crop-grid-line v v1"></div>
+        <div class="crop-grid-line v v2"></div>
+        <div class="crop-handle ch-tl" data-handle="tl"></div>
+        <div class="crop-handle ch-tr" data-handle="tr"></div>
+        <div class="crop-handle ch-bl" data-handle="bl"></div>
+        <div class="crop-handle ch-br" data-handle="br"></div>
+        <div class="crop-handle ch-tc" data-handle="tc"></div>
+        <div class="crop-handle ch-bc" data-handle="bc"></div>
+        <div class="crop-handle ch-ml" data-handle="ml"></div>
+        <div class="crop-handle ch-mr" data-handle="mr"></div>
+      </div>
+    </div>
+    <div class="crop-controls">
+      <div class="crop-slider-row">
+        <span class="crop-slider-label">🔍 Zoom</span>
+        <input type="range" class="crop-slider" id="cropZoom" min="10" max="300" value="100" oninput="onCropZoom(this.value)">
+        <span class="crop-slider-val" id="cropZoomVal">100%</span>
+      </div>
+      <div class="crop-ratio-row" id="cropRatioRow">
+        <div class="crop-ratio-btn active" data-ratio="free" onclick="setCropRatio('free',this)">Bebas</div>
+        <div class="crop-ratio-btn" data-ratio="1:1" onclick="setCropRatio('1:1',this)">1:1</div>
+        <div class="crop-ratio-btn" data-ratio="4:3" onclick="setCropRatio('4:3',this)">4:3</div>
+        <div class="crop-ratio-btn" data-ratio="16:9" onclick="setCropRatio('16:9',this)">16:9</div>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <button class="crop-cancel" onclick="closeCropModal()">Batal</button>
+      <button class="crop-apply" onclick="applyCrop()">✂️ Terapkan Crop</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SPLASH ═══ -->
+<div id="splash">
+  <div class="s-bg">
+    <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+    <div class="s-grid"></div>
+  </div>
+  <div class="s-inner">
+    <div class="s-badge"><span class="s-dot"></span> Kartu Absen Digital</div>
+    <div class="s-clock">
+      <div class="s-time" id="splashTime">00:00:00</div>
+      <div class="s-date" id="splashDate"></div>
+      <div class="s-day" id="splashDay"></div>
+    </div>
+    <h1 class="s-title"><span class="t1">Custom</span><span class="t2">Kartu Absen</span></h1>
+    <p class="s-sub">Generator kartu absen sekolah</p>
+    <p class="s-by">BY DITZZ</p>
+    <div class="s-line"></div>
+    <button class="s-btn" onclick="enterApp()">
+      <span>Buat Kartu Sekarang</span>
+      <span class="s-arr">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <div class="a-header">
+    <span class="a-pill">✦ Generator Aktif</span>
+    <h1>Kartu Absen</h1>
+    <p>Isi data &amp; kustomisasi tampilan kartumu</p>
+  </div>
+
+  <div class="desktop-row">
+    <!-- LEFT: Card preview -->
+    <div class="desktop-left">
+      <!-- CARD -->
+      <div class="card" id="cardEl">
+        <canvas id="bgCanvas"></canvas>
+        <svg id="motifSvg" viewBox="0 0 230 373" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="overlay"></div>
+        <div class="content">
+          <div class="photo">
+            <div class="photo-placeholder" id="photoPlaceholder">
+              <svg viewBox="0 0 98 118" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="98" height="118" fill="#dde3ea"/>
+                <circle cx="49" cy="42" r="20" fill="#b0b9c6"/>
+                <path d="M5 112 C5 82 24 68 49 68 C74 68 93 82 93 112" fill="#b0b9c6"/>
+              </svg>
+            </div>
+            <img id="photoPreview" alt=""/>
+          </div>
+          <div class="name" id="nameEl">NAMA SISWA</div>
+          <div class="id"   id="idEl">NIS/NISN</div>
+          <div class="qr">
+            <div class="qr-placeholder" id="qrPlaceholder">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="7" height="7" rx="1" fill="#bbb"/>
+                <rect x="14" y="3" width="7" height="7" rx="1" fill="#bbb"/>
+                <rect x="3" y="14" width="7" height="7" rx="1" fill="#bbb"/>
+                <rect x="5" y="5" width="3" height="3" rx=".3" fill="#e5e7eb"/>
+                <rect x="16" y="5" width="3" height="3" rx=".3" fill="#e5e7eb"/>
+                <rect x="5" y="16" width="3" height="3" rx=".3" fill="#e5e7eb"/>
+                <rect x="14" y="14" width="3" height="3" rx=".3" fill="#bbb"/>
+                <rect x="18" y="14" width="3" height="3" rx=".3" fill="#bbb"/>
+                <rect x="14" y="18" width="3" height="3" rx=".3" fill="#bbb"/>
+                <rect x="18" y="18" width="3" height="3" rx=".3" fill="#bbb"/>
+              </svg>
+              <span>QR CODE</span>
+            </div>
+            <img id="qrPreview" alt=""/>
+          </div>
+          <div class="footer stroke-on" id="footerEl">KARTU ABSEN SISWA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Panel -->
+    <div class="desktop-right">
+      <!-- PANEL -->
+      <div class="panel">
+        <div class="panel-bar"></div>
+        <div class="panel-inner">
+          <div class="p-head">
+            <div class="p-icon">🪪</div>
+            <div>
+              <div class="p-title">Pengaturan Kartu</div>
+              <div class="p-sub">Sesuaikan kartu absenmu</div>
+            </div>
+          </div>
+
+          <div class="sec">Data Siswa</div>
+          <div class="igroup">
+            <label>Nama Lengkap</label>
+            <input type="text" id="inpName" placeholder="Contoh: Ahmad Fauzi"
+              oninput="document.getElementById('nameEl').textContent=this.value||'NAMA SISWA'"/>
+          </div>
+          <div class="igroup">
+            <label>NIS / NISN</label>
+            <input type="text" id="inpId" placeholder="Contoh: 12345678"
+              oninput="document.getElementById('idEl').textContent=this.value||'NIS/NISN'"/>
+          </div>
+          <div class="igroup">
+            <label>Footer / Nama Sekolah</label>
+            <input type="text" id="inpFooter" placeholder="Contoh: SMP NEGERI 47 BATAM"
+              oninput="document.getElementById('footerEl').textContent=this.value||'KARTU ABSEN SISWA'"/>
+          </div>
+          <div class="igroup">
+            <label>Tampilan Footer</label>
+            <div class="toggle-row">
+              <div class="toggle-opt active" id="togShadow" onclick="setFooterStroke(true)">
+                <span class="tog-ic">✦</span><span class="tog-lbl">Stroke On</span>
+              </div>
+              <div class="toggle-opt" id="togNoShadow" onclick="setFooterStroke(false)">
+                <span class="tog-ic">✕</span><span class="tog-lbl">Stroke Off</span>
+              </div>
+            </div>
+          </div>
+          <div class="igroup">
+            <label>Visibilitas Footer</label>
+            <div class="toggle-row">
+              <div class="toggle-opt active" id="togFooterShow" onclick="setFooterVisible(true)">
+                <span class="tog-ic">👁</span><span class="tog-lbl">Tampilkan</span>
+              </div>
+              <div class="toggle-opt" id="togFooterHide" onclick="setFooterVisible(false)">
+                <span class="tog-ic">🚫</span><span class="tog-lbl">Sembunyikan</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">Foto &amp; Background</div>
+
+          <!-- Foto Siswa with crop -->
+          <div class="upload-with-crop">
+            <label style="font-size:10px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Foto Siswa</label>
+            <div class="uarea-wrap">
+              <div class="uarea no-crop" id="uareaPhoto">
+                <input type="file" accept="image/*" onchange="onFileSelected(this,'photo')"/>
+                <div class="u-inner">
+                  <div class="u-ic">🖼️</div>
+                  <div class="u-txt"><strong id="photoLabel">Upload Foto Siswa</strong><span>Upload foto pas siswa</span></div>
+                </div>
+              </div>
+              <div class="crop-btn" id="cropBtnPhoto" onclick="openCropModal('photo')">✂️ Crop Foto</div>
+            </div>
+            <button class="del-btn" id="delBtnPhoto" onclick="removeImage('photo')" style="display:none;">🗑️ Hapus Foto</button>
+          </div>
+
+          <!-- QR Code with crop -->
+          <div class="upload-with-crop">
+            <label style="font-size:10px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">QR Code</label>
+            <div class="uarea-wrap">
+              <div class="uarea no-crop" id="uareaQr">
+                <input type="file" accept="image/*" onchange="onFileSelected(this,'qr')"/>
+                <div class="u-inner">
+                  <div class="u-ic">⬛</div>
+                  <div class="u-txt"><strong id="qrLabel">Upload QR Code</strong><span>Upload gambar QR Code kamu</span></div>
+                </div>
+              </div>
+              <div class="crop-btn" id="cropBtnQr" onclick="openCropModal('qr')">✂️ Crop QR</div>
+            </div>
+            <button class="del-btn" id="delBtnQr" onclick="removeImage('qr')" style="display:none;">🗑️ Hapus QR</button>
+          </div>
+
+          <!-- Background with crop -->
+          <div class="upload-with-crop">
+            <label style="font-size:10px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Background Kartu</label>
+            <div class="uarea-wrap">
+              <div class="uarea no-crop" id="uareaBg">
+                <input type="file" accept="image/*" onchange="onFileSelected(this,'bg')"/>
+                <div class="u-inner">
+                  <div class="u-ic">🎨</div>
+                  <div class="u-txt"><strong id="bgLabel">Upload Background</strong><span>Gambar latar kartu kamu</span></div>
+                </div>
+              </div>
+              <div class="crop-btn" id="cropBtnBg" onclick="openCropModal('bg')">✂️ Crop BG</div>
+            </div>
+            <button class="del-btn" id="delBtnBg" onclick="removeImage('bg')" style="display:none;">🗑️ Hapus Background</button>
+          </div>
+
+          <div class="sec">Warna</div>
+          <div class="crow">
+            <div class="cg">
+              <label>Motif / Aksen</label>
+              <div class="cswatch" onclick="document.getElementById('colorAccent').click()">
+                <div class="sw" id="swAccent" style="background:#ef4444"></div>
+                <span class="cl" id="clAccent">#ef4444</span>
+                <input type="color" id="colorAccent" value="#ef4444" oninput="onAccentChange(this.value)"/>
+              </div>
+              <div class="color-presets" id="presetAccent">
+                <div class="cp active-preset" style="background:#ef4444" title="Merah" onclick="applyPresetAccent('#ef4444')"></div>
+                <div class="cp" style="background:#f97316" title="Oranye" onclick="applyPresetAccent('#f97316')"></div>
+                <div class="cp" style="background:#eab308" title="Kuning" onclick="applyPresetAccent('#eab308')"></div>
+                <div class="cp" style="background:#22c55e" title="Hijau" onclick="applyPresetAccent('#22c55e')"></div>
+                <div class="cp" style="background:#06b6d4" title="Cyan" onclick="applyPresetAccent('#06b6d4')"></div>
+                <div class="cp" style="background:#3b82f6" title="Biru" onclick="applyPresetAccent('#3b82f6')"></div>
+                <div class="cp" style="background:#8b5cf6" title="Ungu" onclick="applyPresetAccent('#8b5cf6')"></div>
+                <div class="cp" style="background:#ec4899" title="Pink" onclick="applyPresetAccent('#ec4899')"></div>
+                <div class="cp" style="background:#14b8a6" title="Teal" onclick="applyPresetAccent('#14b8a6')"></div>
+                <div class="cp" style="background:#6366f1" title="Indigo" onclick="applyPresetAccent('#6366f1')"></div>
+                <div class="cp" style="background:#1e293b" title="Gelap" onclick="applyPresetAccent('#1e293b')"></div>
+                <div class="cp" style="background:#64748b" title="Abu" onclick="applyPresetAccent('#64748b')"></div>
+              </div>
+            </div>
+            <div class="cg">
+              <label>Background Kartu</label>
+              <div class="cswatch" onclick="document.getElementById('colorBg').click()">
+                <div class="sw" id="swBg" style="background:#ffffff"></div>
+                <span class="cl" id="clBg">#ffffff</span>
+                <input type="color" id="colorBg" value="#ffffff" oninput="onBgColorChange(this.value)"/>
+              </div>
+              <div class="color-presets" id="presetBg">
+                <div class="cp active-preset" style="background:#ffffff;border-color:rgba(255,255,255,.4)" title="Putih" onclick="applyPresetBg('#ffffff')"></div>
+                <div class="cp" style="background:#f1f5f9" title="Abu Terang" onclick="applyPresetBg('#f1f5f9')"></div>
+                <div class="cp" style="background:#fef9c3" title="Kuning Muda" onclick="applyPresetBg('#fef9c3')"></div>
+                <div class="cp" style="background:#dcfce7" title="Hijau Muda" onclick="applyPresetBg('#dcfce7')"></div>
+                <div class="cp" style="background:#dbeafe" title="Biru Muda" onclick="applyPresetBg('#dbeafe')"></div>
+                <div class="cp" style="background:#ede9fe" title="Ungu Muda" onclick="applyPresetBg('#ede9fe')"></div>
+                <div class="cp" style="background:#fce7f3" title="Pink Muda" onclick="applyPresetBg('#fce7f3')"></div>
+                <div class="cp" style="background:#ffedd5" title="Oranye Muda" onclick="applyPresetBg('#ffedd5')"></div>
+                <div class="cp" style="background:#1e293b" title="Navy Gelap" onclick="applyPresetBg('#1e293b')"></div>
+                <div class="cp" style="background:#0f172a" title="Hitam Biru" onclick="applyPresetBg('#0f172a')"></div>
+                <div class="cp" style="background:#111827" title="Hitam" onclick="applyPresetBg('#111827')"></div>
+                <div class="cp" style="background:#292524" title="Coklat Gelap" onclick="applyPresetBg('#292524')"></div>
+              </div>
+            </div>
+          </div>
+          <div class="reset-color-row">
+            <div class="reset-btn" onclick="resetAllColors()">
+              <span class="rb-ic">↺</span> Reset Warna ke Default
+            </div>
+          </div>
+
+          <div class="sec">Motif</div>
+          <div class="motif-grid" id="motifGrid"></div>
+
+          <button class="dl-btn" id="dlBtn" onclick="downloadCard()">⬇ Download Kartu HD 1080p</button>
+        </div>
+      </div>
+
+      <!-- GammaScan card below panel -->
+      <a class="gammascan-card" href="https://play.google.com/store/apps/details?id=com.gamma.scan" target="_blank" rel="noopener" id="gammascanCard" style="display:none;">
+        <div class="gammascan-bar"></div>
+        <div class="gammascan-inner">
+          <div class="gammascan-icon">📱</div>
+          <div class="gammascan-txt">
+            <strong>Pembaca QR & Kode Batang — Gamma Play</strong>
+            <span>Generate QR Code langsung dari HP<br>— cepat, mudah, &amp; gratis!</span>
+          </div>
+          <span class="gammascan-arrow">›</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="a-foot">© 2026 By Ditzz • Kartu Absen Generator</div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let accentColor  = '#ef4444';
+let bgColor      = '#ffffff';
+let bgImageData  = null;
+let currentMotif = 'original';
+
+// Raw (uncropped) originals per type
+const rawImages = { photo: null, qr: null, bg: null };
+// Cropped (applied) data per type
+const croppedImages = { photo: null, qr: null, bg: null };
+
+/* ════════════════════════════════════════
+   CROP STATE
+════════════════════════════════════════ */
+let cropTarget    = null; // 'photo' | 'qr' | 'bg'
+let cropImg       = null; // Image object
+let cropZoom      = 100;
+let cropRatio     = 'free';
+let cropSel       = { x:20, y:20, w:200, h:200 }; // in canvas coords
+let cropDrag      = null; // { type:'move'|handle, startX, startY, origSel }
+let cropCanvasW   = 0;
+let cropCanvasH   = 0;
+let cropImgRect   = { x:0, y:0, w:0, h:0 }; // where img is drawn on canvas
+let cropZoomOffX  = 0;
+let cropZoomOffY  = 0;
+
+/* ════════════════════════════════════════
+   FOOTER STROKE
+════════════════════════════════════════ */
+function setFooterStroke(on){
+  const footer = document.getElementById('footerEl');
+  const btnOn  = document.getElementById('togShadow');
+  const btnOff = document.getElementById('togNoShadow');
+  if(on){
+    footer.classList.add('stroke-on'); footer.classList.remove('no-stroke');
+    btnOn.classList.add('active');     btnOff.classList.remove('active');
+  } else {
+    footer.classList.remove('stroke-on'); footer.classList.add('no-stroke');
+    btnOn.classList.remove('active');     btnOff.classList.add('active');
+  }
+}
+
+function setFooterVisible(show){
+  const footer = document.getElementById('footerEl');
+  const btnShow = document.getElementById('togFooterShow');
+  const btnHide = document.getElementById('togFooterHide');
+  footer.style.display = show ? '' : 'none';
+  if(show){ btnShow.classList.add('active'); btnHide.classList.remove('active'); }
+  else     { btnHide.classList.add('active'); btnShow.classList.remove('active'); }
+}
+
+/* ════════════════════════════════════════
+   REMOVE IMAGE (reset to default)
+════════════════════════════════════════ */
+function removeImage(type){
+  rawImages[type]     = null;
+  croppedImages[type] = null;
+  const cropBtn = document.getElementById('cropBtn'+capitalize(type));
+  const uarea   = document.getElementById('uarea'+capitalize(type));
+  const delBtn  = document.getElementById('delBtn'+capitalize(type));
+  cropBtn.classList.remove('visible');
+  uarea.classList.add('no-crop');
+  delBtn.style.display = 'none';
+  // reset file input
+  const fileInput = uarea.querySelector('input[type="file"]');
+  if(fileInput) fileInput.value='';
+
+  if(type==='photo'){
+    document.getElementById('photoLabel').textContent = 'Upload Foto Siswa';
+    document.getElementById('photoPreview').style.display='none';
+    document.getElementById('photoPreview').src='';
+    document.getElementById('photoPlaceholder').style.display='flex';
+  } else if(type==='qr'){
+    document.getElementById('qrLabel').textContent = 'Upload QR Code';
+    document.getElementById('qrPreview').style.display='none';
+    document.getElementById('qrPreview').src='';
+    document.getElementById('qrPlaceholder').style.display='flex';
+  } else if(type==='bg'){
+    document.getElementById('bgLabel').textContent = 'Upload Background';
+    bgImageData = null;
+    paintBgCanvas();
+  }
+}
+
+/* ════════════════════════════════════════
+   FILE SELECTED — store raw, show crop btn
+════════════════════════════════════════ */
+function onFileSelected(inp, type){
+  const f = inp.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = e=>{
+    rawImages[type] = e.target.result;
+    croppedImages[type] = null; // reset crop
+    applyImageToCard(type, e.target.result);
+    // show crop button, change uarea border radius
+    const cropBtn = document.getElementById('cropBtn'+capitalize(type));
+    const uarea   = document.getElementById('uarea'+capitalize(type));
+    const delBtn  = document.getElementById('delBtn'+capitalize(type));
+    cropBtn.classList.add('visible');
+    uarea.classList.remove('no-crop');
+    if(delBtn) delBtn.style.display = 'block';
+    // update label
+    document.getElementById(type+'Label').textContent = f.name.length>22 ? f.name.substring(0,22)+'…' : f.name;
+  };
+  r.readAsDataURL(f);
+}
+
+function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function applyImageToCard(type, dataUrl){
+  if(type==='photo'){
+    const img = document.getElementById('photoPreview');
+    img.src = dataUrl; img.style.display='block';
+    document.getElementById('photoPlaceholder').style.display='none';
+  } else if(type==='qr'){
+    const img = document.getElementById('qrPreview');
+    img.src = dataUrl; img.style.display='block';
+    document.getElementById('qrPlaceholder').style.display='none';
+  } else if(type==='bg'){
+    bgImageData = dataUrl;
+    paintBgCanvas();
+  }
+}
+
+/* ════════════════════════════════════════
+   CROP MODAL — OPEN
+════════════════════════════════════════ */
+function openCropModal(type){
+  cropTarget = type;
+  cropZoom   = 100;
+  cropRatio  = 'free';
+  // set title
+  const titles = { photo:'✂️ Crop Foto Siswa', qr:'✂️ Crop QR Code', bg:'✂️ Crop Background' };
+  document.getElementById('cropModalTitle').textContent = titles[type];
+  // reset zoom slider
+  document.getElementById('cropZoom').value = 100;
+  document.getElementById('cropZoomVal').textContent = '100%';
+
+  // Set ratio row based on type
+  const ratioRow = document.getElementById('cropRatioRow');
+  if(type==='qr'){
+    // QR: square only — hide ratio row, lock 1:1
+    ratioRow.style.display='none';
+    cropRatio = '1:1';
+  } else if(type==='photo'){
+    // Photo: hanya rasio foto pas (5:6), sembunyikan pilihan lain
+    ratioRow.style.display='none';
+    cropRatio = '5:6';
+  } else {
+    // BG: hanya rasio kartu pas (230:373)
+    ratioRow.style.display='none';
+    cropRatio = '230:373';
+  }
+
+  const src = rawImages[type];
+  if(!src) return;
+
+  const modal = document.getElementById('cropModal');
+  modal.classList.add('open');
+
+  const img = new Image();
+  img.onload = ()=>{
+    cropImg = img;
+    initCropCanvas();
+  };
+  img.src = src;
+}
+
+function initCropCanvas(){
+  const wrap = document.getElementById('cropCanvasWrap');
+  const cv   = document.getElementById('cropCanvas');
+  cropCanvasW = wrap.clientWidth;
+  cropCanvasH = wrap.clientHeight;
+  cv.width  = cropCanvasW;
+  cv.height = cropCanvasH;
+  cropZoomOffX = 0;
+  cropZoomOffY = 0;
+  renderCropCanvas(); // sets cropImgRect
+  // init selection based on ratio, clamped to image rect
+  function parseRatio(r){ if(r==='free'||!r) return null; const p=r.split(':'); return {w:parseFloat(p[0]),h:parseFloat(p[1])}; }
+  const rp = parseRatio(cropRatio);
+  const imgW = cropImgRect.w, imgH = cropImgRect.h;
+  const MAX_W = Math.round(imgW * 0.95);
+  const MAX_H = Math.round(imgH * 0.95);
+  let sw, sh;
+  if(rp){
+    sw = MAX_W;
+    sh = Math.round(sw * rp.h / rp.w);
+    if(sh > MAX_H){ sh = MAX_H; sw = Math.round(sh * rp.w / rp.h); }
+  } else {
+    sw = MAX_W; sh = MAX_H;
+  }
+  sw = Math.max(30, Math.min(sw, imgW));
+  sh = Math.max(30, Math.min(sh, imgH));
+  cropSel = {
+    x: Math.round(cropImgRect.x + (imgW - sw) / 2),
+    y: Math.round(cropImgRect.y + (imgH - sh) / 2),
+    w: sw, h: sh
+  };
+  renderCropSelection();
+}
+
+function renderCropCanvas(){
+  const cv  = document.getElementById('cropCanvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cropCanvasW,cropCanvasH);
+  // fill bg
+  ctx.fillStyle = '#060d1a';
+  ctx.fillRect(0,0,cropCanvasW,cropCanvasH);
+  if(!cropImg) return;
+  const iw = cropImg.naturalWidth, ih = cropImg.naturalHeight;
+  const zf = cropZoom/100;
+  // base fit: always contain (Math.min) so full image is visible for cropping
+  const baseScale = Math.min(cropCanvasW/iw, cropCanvasH/ih);
+  const dw = iw*baseScale*zf, dh = ih*baseScale*zf;
+  const dx = (cropCanvasW-dw)/2 + cropZoomOffX;
+  const dy = (cropCanvasH-dh)/2 + cropZoomOffY;
+  cropImgRect = {x:dx,y:dy,w:dw,h:dh};
+  ctx.drawImage(cropImg, dx, dy, dw, dh);
+}
+
+function renderCropSelection(){
+  const sel = document.getElementById('cropSelection');
+  // Clamp to image bounds (not full canvas)
+  const imgL = cropImgRect.x, imgT = cropImgRect.y;
+  const imgR = cropImgRect.x + cropImgRect.w;
+  const imgB = cropImgRect.y + cropImgRect.h;
+  const w = Math.max(30, Math.min(cropSel.w, cropImgRect.w));
+  const h = Math.max(30, Math.min(cropSel.h, cropImgRect.h));
+  const x = Math.max(imgL, Math.min(cropSel.x, imgR - w));
+  const y = Math.max(imgT, Math.min(cropSel.y, imgB - h));
+  sel.style.left   = x+'px';
+  sel.style.top    = y+'px';
+  sel.style.width  = w+'px';
+  sel.style.height = h+'px';
+}
+
+function onCropZoom(val){
+  cropZoom = parseInt(val);
+  document.getElementById('cropZoomVal').textContent = val+'%';
+  renderCropCanvas(); // updates cropImgRect
+
+  // Re-clamp selection to new image bounds after zoom
+  const imgL = cropImgRect.x, imgT = cropImgRect.y;
+  const imgR = cropImgRect.x + cropImgRect.w;
+  const imgB = cropImgRect.y + cropImgRect.h;
+
+  // Clamp size first
+  cropSel.w = Math.max(30, Math.min(cropSel.w, cropImgRect.w));
+  cropSel.h = Math.max(30, Math.min(cropSel.h, cropImgRect.h));
+
+  // Clamp position
+  cropSel.x = Math.max(imgL, Math.min(cropSel.x, imgR - cropSel.w));
+  cropSel.y = Math.max(imgT, Math.min(cropSel.y, imgB - cropSel.h));
+
+  renderCropSelection();
+}
+
+function setCropRatio(ratio, btn){
+  cropRatio = ratio;
+  document.querySelectorAll('.crop-ratio-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  // adjust selection to match new ratio, clamped to image rect
+  if(ratio !== 'free'){
+    const parts = ratio.split(':');
+    const rw = parseFloat(parts[0]), rh = parseFloat(parts[1]);
+    const imgW = cropImgRect.w, imgH = cropImgRect.h;
+    // Try keeping width, adjust height
+    let newW = cropSel.w;
+    let newH = Math.round(newW * rh / rw);
+    // If height would exceed image, fit from height
+    if(newH > imgH){
+      newH = imgH;
+      newW = Math.round(newH * rw / rh);
+    }
+    newW = Math.max(30, Math.min(newW, imgW));
+    newH = Math.max(30, Math.min(newH, imgH));
+    cropSel.w = newW;
+    cropSel.h = newH;
+    // Re-center within image rect
+    cropSel.x = Math.max(cropImgRect.x, Math.min(cropSel.x, cropImgRect.x + imgW - newW));
+    cropSel.y = Math.max(cropImgRect.y, Math.min(cropSel.y, cropImgRect.y + imgH - newH));
+    renderCropSelection();
+  }
+}
+
+/* ─── drag logic ─── */
+function initCropDrag(){
+  const wrap = document.getElementById('cropCanvasWrap');
+  const sel  = document.getElementById('cropSelection');
+  const MIN  = 30;
+
+  function getXY(e){
+    const r = wrap.getBoundingClientRect();
+    if(e.touches){ return { x: e.touches[0].clientX-r.left, y: e.touches[0].clientY-r.top }; }
+    return { x: e.clientX-r.left, y: e.clientY-r.top };
+  }
+
+  // Clamp selection to image bounds only (not full canvas)
+  function clampSel(s){
+    const imgL = cropImgRect.x, imgT = cropImgRect.y;
+    const imgR = cropImgRect.x + cropImgRect.w, imgB = cropImgRect.y + cropImgRect.h;
+    // Clamp size to not exceed image
+    s.w = Math.max(MIN, Math.min(s.w, cropImgRect.w));
+    s.h = Math.max(MIN, Math.min(s.h, cropImgRect.h));
+    // Clamp position so selection stays within image
+    s.x = Math.max(imgL, Math.min(s.x, imgR - s.w));
+    s.y = Math.max(imgT, Math.min(s.y, imgB - s.h));
+    return s;
+  }
+
+  function applyRatio(s, anchorX, anchorY){
+    if(cropRatio==='free') return s;
+    const parts = cropRatio.split(':');
+    const rw=parseInt(parts[0]), rh=parseInt(parts[1]);
+    s.h = Math.round(s.w * rh/rw);
+    return s;
+  }
+
+  function onDown(e){
+    const tgt = e.target;
+    const handle = tgt.dataset.handle;
+    const p = getXY(e);
+    cropDrag = { handle: handle||null, startX:p.x, startY:p.y, origSel:{...cropSel} };
+    e.preventDefault();
+  }
+
+  function onMove(e){
+    if(!cropDrag) return;
+    const p = getXY(e);
+    const dx = p.x - cropDrag.startX;
+    const dy = p.y - cropDrag.startY;
+    const o  = cropDrag.origSel;
+    let s    = {...o};
+
+    if(!cropDrag.handle){
+      // move
+      s.x = o.x+dx; s.y = o.y+dy;
+    } else {
+      const h = cropDrag.handle;
+      if(h==='tl'){ s.x=o.x+dx; s.y=o.y+dy; s.w=o.w-dx; s.h=o.h-dy; }
+      else if(h==='tr'){ s.y=o.y+dy; s.w=o.w+dx; s.h=o.h-dy; }
+      else if(h==='bl'){ s.x=o.x+dx; s.w=o.w-dx; s.h=o.h+dy; }
+      else if(h==='br'){ s.w=o.w+dx; s.h=o.h+dy; }
+      else if(h==='tc'){ s.y=o.y+dy; s.h=o.h-dy; }
+      else if(h==='bc'){ s.h=o.h+dy; }
+      else if(h==='ml'){ s.x=o.x+dx; s.w=o.w-dx; }
+      else if(h==='mr'){ s.w=o.w+dx; }
+      // enforce min size
+      if(s.w<MIN){ s.w=MIN; if(h==='tl'||h==='ml'||h==='bl') s.x=o.x+o.w-MIN; }
+      if(s.h<MIN){ s.h=MIN; if(h==='tl'||h==='tc'||h==='tr') s.y=o.y+o.h-MIN; }
+      applyRatio(s, p.x, p.y);
+    }
+    s = clampSel(s);
+    cropSel = s;
+    renderCropSelection();
+    e.preventDefault();
+  }
+
+  function onUp(){ cropDrag=null; }
+
+  // selection (move)
+  sel.addEventListener('mousedown', onDown);
+  sel.addEventListener('touchstart', onDown, {passive:false});
+  // handles
+  sel.querySelectorAll('.crop-handle').forEach(h=>{
+    h.addEventListener('mousedown', onDown);
+    h.addEventListener('touchstart', onDown, {passive:false});
+  });
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('mouseup', onUp);
+  window.addEventListener('touchend', onUp);
+}
+
+/* ─── apply crop ─── */
+function applyCrop(){
+  if(!cropImg || !cropTarget) return;
+  const cv  = document.createElement('canvas');
+  // map sel coords back to image coords
+  const scaleX = cropImg.naturalWidth  / cropImgRect.w;
+  const scaleY = cropImg.naturalHeight / cropImgRect.h;
+  const sx = (cropSel.x - cropImgRect.x) * scaleX;
+  const sy = (cropSel.y - cropImgRect.y) * scaleY;
+  const sw = cropSel.w * scaleX;
+  const sh = cropSel.h * scaleY;
+  // clamp to image bounds
+  const cx = Math.max(0, sx);
+  const cy = Math.max(0, sy);
+  const cw = Math.min(sw, cropImg.naturalWidth  - cx);
+  const ch = Math.min(sh, cropImg.naturalHeight - cy);
+  if(cw <= 0 || ch <= 0){ alert('Area crop tidak valid. Geser atau perbesar area crop ke bagian gambar.'); return; }
+  cv.width  = Math.round(cw);
+  cv.height = Math.round(ch);
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(cropImg, cx, cy, cw, ch, 0, 0, Math.round(cw), Math.round(ch));
+  const result = cv.toDataURL('image/png');
+  croppedImages[cropTarget] = result;
+  applyImageToCard(cropTarget, result);
+  closeCropModal();
+}
+
+function closeCropModal(){
+  document.getElementById('cropModal').classList.remove('open');
+  cropTarget = null; cropImg = null;
+}
+
+/* ════════════════════════════════════════
+   BG CANVAS
+════════════════════════════════════════ */
+function paintBgCanvas(){
+  const card = document.getElementById('cardEl');
+  const cv   = document.getElementById('bgCanvas');
+  const W = card.offsetWidth  || 230;
+  const H = card.offsetHeight || 373;
+  cv.width=W; cv.height=H;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if(bgImageData){
+    const img = new Image();
+    img.onload = ()=>{
+      const iw=img.naturalWidth, ih=img.naturalHeight;
+      // cover: scale to fill card, center
+      const scale = Math.max(W/iw, H/ih);
+      const dw = iw*scale, dh = ih*scale;
+      const dx = (W - dw) / 2;
+      const dy = (H - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+    };
+    img.src = bgImageData;
+  } else {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+/* ════════════════════════════════════════
+   MOTIFS
+════════════════════════════════════════ */
+/* ─── Shared white dot grid helper ─── */
+/* Generates a uniform dot grid across the entire card (230x373) */
+function whiteDotGrid(opacity=0.22, r=1.8, step=18){
+  const cols=[], rows=[];
+  for(let x=step/2;x<230;x+=step) cols.push(x);
+  for(let y=step/2;y<373;y+=step) rows.push(y);
+  return rows.flatMap((y,ri)=>cols.map((x,ci)=>{
+    const alpha=(opacity*(0.9-0.012*ri)).toFixed(3);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="rgba(255,255,255,${alpha})"/>`;
+  })).join('');
+}
+/* Mini dot grid for preview thumbnails (48x34) */
+function whiteDotGridPre(opacity=0.28, r=1.1, step=7){
+  const cols=[], rows=[];
+  for(let x=step/2;x<48;x+=step) cols.push(x);
+  for(let y=step/2;y<34;y+=step) rows.push(y);
+  return rows.flatMap((y,ri)=>cols.map((x)=>{
+    const alpha=(opacity*(0.9-0.015*ri)).toFixed(3);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="rgba(255,255,255,${alpha})"/>`;
+  })).join('');
+}
+
+const MOTIFS = [
+  {
+    id:'none',label:'None',
+    svg:()=>``,
+    pre:()=>`<rect width="48" height="34" fill="#f3f4f6"/>
+      <line x1="5" y1="5" x2="43" y2="29" stroke="#d1d5db" stroke-width="1.5"/>
+      <line x1="43" y1="5" x2="5" y2="29" stroke="#d1d5db" stroke-width="1.5"/>`
+  },
+  {
+    id:'original',label:'Original',
+    svg:c=>`
+      <path d="M75,0 Q155,0 230,0 L230,88 Q155,88 120,44 Q95,12 75,0Z" fill="${c}"/>
+      <path d="M0,285 Q75,285 110,329 Q135,361 155,373 L0,373Z" fill="${c}"/>
+      ${whiteDotGrid()}
+      <!-- Saturn rings top - 3 rings -->
+      <ellipse cx="175" cy="38" rx="72" ry="18" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2.4" transform="rotate(-8 175 38)"/>
+      <ellipse cx="175" cy="38" rx="82" ry="22" fill="none" stroke="rgba(255,255,255,.32)" stroke-width="1.5" transform="rotate(-8 175 38)"/>
+      <ellipse cx="175" cy="38" rx="92" ry="26" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1" transform="rotate(-8 175 38)"/>
+      <!-- Saturn rings bottom - 3 rings -->
+      <ellipse cx="55" cy="335" rx="72" ry="18" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2.4" transform="rotate(-8 55 335)"/>
+      <ellipse cx="55" cy="335" rx="82" ry="22" fill="none" stroke="rgba(255,255,255,.32)" stroke-width="1.5" transform="rotate(-8 55 335)"/>
+      <ellipse cx="55" cy="335" rx="92" ry="26" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1" transform="rotate(-8 55 335)"/>
+      <!-- White stars top area (bigger + more) -->
+      <polygon points="100,8 102.5,14.5 109.5,14.5 104,18.5 106.5,25 100,21 93.5,25 96,18.5 90.5,14.5 97.5,14.5" fill="rgba(255,255,255,.9)"/>
+      <polygon points="155,6 156.8,11.2 162.5,11.2 158,14.3 159.8,19.5 155,16.4 150.2,19.5 152,14.3 147.5,11.2 153.2,11.2" fill="rgba(255,255,255,.75)"/>
+      <polygon points="210,20 211.4,24.2 215.8,24.2 212.4,26.6 213.8,30.8 210,28.4 206.2,30.8 207.6,26.6 204.2,24.2 208.6,24.2" fill="rgba(255,255,255,.8)"/>
+      <polygon points="130,32 131.1,35.2 134.5,35.2 131.9,37.1 132.9,40.3 130,38.3 127.1,40.3 128.1,37.1 125.5,35.2 128.9,35.2" fill="rgba(255,255,255,.6)"/>
+      <polygon points="85,55 86,58.2 89.5,58.2 86.8,60.2 87.8,63.5 85,61.5 82.2,63.5 83.2,60.2 80.5,58.2 84,58.2" fill="rgba(255,255,255,.5)"/>
+      <polygon points="220,58 221,61 224.5,61 221.8,63 222.8,66 220,64.1 217.2,66 218.2,63 215.5,61 219,61" fill="rgba(255,255,255,.45)"/>
+      <!-- White stars bottom area (bigger + more) -->
+      <polygon points="25,305 27.5,311.5 34.5,311.5 29,315.5 31.5,322 25,318 18.5,322 21,315.5 15.5,311.5 22.5,311.5" fill="rgba(255,255,255,.9)"/>
+      <polygon points="75,320 76.8,325.2 82.5,325.2 78,328.3 79.8,333.5 75,330.4 70.2,333.5 72,328.3 67.5,325.2 73.2,325.2" fill="rgba(255,255,255,.75)"/>
+      <polygon points="45,350 46.4,354.2 50.8,354.2 47.4,356.6 48.8,360.8 45,358.4 41.2,360.8 42.6,356.6 39.2,354.2 43.6,354.2" fill="rgba(255,255,255,.8)"/>
+      <polygon points="110,338 111.2,341.6 115,341.6 112.1,343.7 113.3,347.3 110,345.2 106.7,347.3 107.9,343.7 105,341.6 108.8,341.6" fill="rgba(255,255,255,.6)"/>
+      <polygon points="10,355 11,358 14,358 11.5,360 12.5,363 10,361 7.5,363 8.5,360 6,358 9,358" fill="rgba(255,255,255,.5)"/>
+      <polygon points="140,315 141,318 144,318 141.5,320 142.5,323 140,321 137.5,323 138.5,320 136,318 139,318" fill="rgba(255,255,255,.45)"/>
+      <!-- Extra white dot sparkles top -->
+      <circle cx="88" cy="18" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="220" cy="10" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="143" cy="68" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <circle cx="108" cy="45" r="1.5" fill="rgba(255,255,255,.4)"/>
+      <!-- Extra white dot sparkles bottom -->
+      <circle cx="60" cy="355" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="10" cy="315" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="95" cy="370" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <circle cx="30" cy="340" r="1.5" fill="rgba(255,255,255,.4)"/>
+      <!-- Crescent moon top -->
+      <path d="M192,62 A14,14 0 1,1 206,50 A9,9 0 1,0 192,62Z" fill="rgba(255,255,255,.78)"/>
+      <!-- Crescent moon bottom -->
+      <path d="M38,308 A14,14 0 1,1 52,296 A9,9 0 1,0 38,308Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <path d="M15,0 Q34,0 48,0 L48,16 Q34,16 26,8 Q20,2 15,0Z" fill="${c}"/>
+      <path d="M0,18 Q14,18 21,26 Q26,32 30,34 L0,34Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <ellipse cx="36" cy="8" rx="14" ry="4" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="1.1" transform="rotate(-8 36 8)"/>
+      <ellipse cx="36" cy="8" rx="17" ry="5" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="0.7" transform="rotate(-8 36 8)"/>
+      <ellipse cx="10" cy="26" rx="14" ry="4" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="1.1" transform="rotate(-8 10 26)"/>
+      <polygon points="22,4 23.3,7.6 27,7.6 24.2,9.7 25.2,13.3 22,11.2 18.8,13.3 19.8,9.7 17,7.6 20.7,7.6" fill="rgba(255,255,255,.85)"/>
+      <path d="M40,6 A4,4 0 1,1 44,3 A2.5,2.5 0 1,0 40,6Z" fill="rgba(255,255,255,.75)"/>`
+  },
+  {
+    id:'diagonal',label:'Diagonal',
+    svg:c=>`
+      <polygon points="90,0 230,0 230,140" fill="${c}"/>
+      <polygon points="0,233 0,373 140,373" fill="${c}"/>
+      ${whiteDotGrid()}
+      <!-- Multiple diagonal stripe lines -->
+      <line x1="230" y1="155" x2="0" y2="245" stroke="rgba(255,255,255,.38)" stroke-width="2.8"/>
+      <line x1="230" y1="178" x2="0" y2="268" stroke="rgba(255,255,255,.2)" stroke-width="1.8"/>
+      <line x1="230" y1="200" x2="0" y2="290" stroke="rgba(255,255,255,.1)" stroke-width="1.2"/>
+      <!-- Saturn ring top-right -->
+      <ellipse cx="185" cy="50" rx="68" ry="16" fill="none" stroke="rgba(255,255,255,.58)" stroke-width="2.2" transform="rotate(-18 185 50)"/>
+      <ellipse cx="185" cy="50" rx="80" ry="19" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.4" transform="rotate(-18 185 50)"/>
+      <ellipse cx="185" cy="50" rx="92" ry="22" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1" transform="rotate(-18 185 50)"/>
+      <!-- Saturn ring bottom-left -->
+      <ellipse cx="45" cy="323" rx="68" ry="16" fill="none" stroke="rgba(255,255,255,.58)" stroke-width="2.2" transform="rotate(-18 45 323)"/>
+      <ellipse cx="45" cy="323" rx="80" ry="19" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.4" transform="rotate(-18 45 323)"/>
+      <ellipse cx="45" cy="323" rx="92" ry="22" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1" transform="rotate(-18 45 323)"/>
+      <!-- Stars top-right -->
+      <polygon points="155,10 157.5,17 165,17 159,21 161.5,28 155,24 148.5,28 151,21 145,17 152.5,17" fill="rgba(255,255,255,.88)"/>
+      <polygon points="210,18 211.5,22.5 216.5,22.5 212.5,25.5 214,30 210,27 206,30 207.5,25.5 203.5,22.5 208.5,22.5" fill="rgba(255,255,255,.7)"/>
+      <polygon points="125,28 126.2,31.8 130.2,31.8 127.2,34 128.3,37.8 125,35.5 121.7,37.8 122.8,34 119.8,31.8 123.8,31.8" fill="rgba(255,255,255,.6)"/>
+      <polygon points="218,72 219,75 222.5,75 219.8,77 220.8,80 218,78 215.2,80 216.2,77 213.5,75 217,75" fill="rgba(255,255,255,.5)"/>
+      <!-- Stars bottom-left -->
+      <polygon points="25,308 27.5,315 35,315 29,319 31.5,326 25,322 18.5,326 21,319 15,315 22.5,315" fill="rgba(255,255,255,.88)"/>
+      <polygon points="72,345 73.5,349.5 78.5,349.5 74.5,352.5 76,357 72,354 68,357 69.5,352.5 65.5,349.5 70.5,349.5" fill="rgba(255,255,255,.7)"/>
+      <polygon points="105,330 106.2,334 110.2,334 107.2,336 108.3,340 105,337.5 101.7,340 102.8,336 99.8,334 103.8,334" fill="rgba(255,255,255,.6)"/>
+      <polygon points="12,368 13,371 16.5,371 13.8,373 14.8,376 12,374 9.2,376 10.2,373 7.5,371 11,371" fill="rgba(255,255,255,.5)"/>
+      <!-- Sparkle dots top -->
+      <circle cx="200" cy="8" r="2.5" fill="rgba(255,255,255,.65)"/>
+      <circle cx="100" cy="5" r="2" fill="rgba(255,255,255,.55)"/>
+      <circle cx="170" cy="80" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <!-- Sparkle dots bottom -->
+      <circle cx="30" cy="370" r="2.5" fill="rgba(255,255,255,.65)"/>
+      <circle cx="130" cy="368" r="2" fill="rgba(255,255,255,.55)"/>
+      <circle cx="60" cy="295" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <!-- Crescent moons -->
+      <path d="M192,32 A14,14 0 1,1 206,20 A9,9 0 1,0 192,32Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M38,338 A14,14 0 1,1 52,326 A9,9 0 1,0 38,338Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <polygon points="20,0 48,0 48,24" fill="${c}"/>
+      <polygon points="0,10 0,34 28,34" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <line x1="48" y1="26" x2="0" y2="12" stroke="rgba(255,255,255,.42)" stroke-width="1.1"/>
+      <line x1="48" y1="30" x2="0" y2="16" stroke="rgba(255,255,255,.2)" stroke-width="0.7"/>
+      <ellipse cx="38" cy="8" rx="12" ry="3.5" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(-18 38 8)"/>
+      <ellipse cx="10" cy="26" rx="12" ry="3.5" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(-18 10 26)"/>
+      <polygon points="28,3 28.8,5.5 31.5,5.5 29.5,7 30.3,9.5 28,8 25.7,9.5 26.5,7 24.5,5.5 27.2,5.5" fill="rgba(255,255,255,.85)"/>
+      <path d="M40,4 A4,4 0 1,1 44,1 A2.5,2.5 0 1,0 40,4Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M8,28 A4,4 0 1,1 12,25 A2.5,2.5 0 1,0 8,28Z" fill="rgba(255,255,255,.75)"/>`
+  },
+  {
+    id:'stripe',label:'Stripe',
+    svg:c=>`
+      <!-- Vertical stripe RIGHT (main + shadow) -->
+      <rect x="178" y="0" width="52" height="373" fill="${c}"/>
+      <rect x="170" y="0" width="8" height="373" fill="${c}" opacity="0.45"/>
+      <!-- Vertical stripe LEFT (main + shadow) -->
+      <rect x="0" y="0" width="52" height="373" fill="${c}"/>
+      <rect x="52" y="0" width="8" height="373" fill="${c}" opacity="0.45"/>
+      <!-- Horizontal stripes top -->
+      <rect x="0" y="0" width="230" height="10" fill="${c}"/>
+      <rect x="0" y="10" width="230" height="5" fill="${c}" opacity="0.42"/>
+      <!-- Horizontal stripes bottom -->
+      <rect x="0" y="363" width="230" height="10" fill="${c}"/>
+      <rect x="0" y="358" width="230" height="5" fill="${c}" opacity="0.42"/>
+      ${whiteDotGrid()}
+      <!-- Vertical inner detail lines RIGHT -->
+      <line x1="185" y1="0" x2="185" y2="373" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
+      <line x1="195" y1="0" x2="195" y2="373" stroke="rgba(255,255,255,.09)" stroke-width="0.8"/>
+      <!-- Vertical inner detail lines LEFT -->
+      <line x1="45" y1="0" x2="45" y2="373" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
+      <line x1="35" y1="0" x2="35" y2="373" stroke="rgba(255,255,255,.09)" stroke-width="0.8"/>
+      <!-- Horizontal inner lines -->
+      <line x1="0" y1="6" x2="230" y2="6" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
+      <line x1="0" y1="367" x2="230" y2="367" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
+      <!-- Saturn rings on RIGHT stripe (vertical) -->
+      <ellipse cx="204" cy="100" rx="28" ry="52" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="2" transform="rotate(0 204 100)"/>
+      <ellipse cx="204" cy="100" rx="34" ry="62" fill="none" stroke="rgba(255,255,255,.24)" stroke-width="1.3"/>
+      <ellipse cx="204" cy="100" rx="40" ry="72" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="0.8"/>
+      <!-- Saturn rings on LEFT stripe (vertical) -->
+      <ellipse cx="26" cy="270" rx="28" ry="52" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="2" transform="rotate(0 26 270)"/>
+      <ellipse cx="26" cy="270" rx="34" ry="62" fill="none" stroke="rgba(255,255,255,.24)" stroke-width="1.3"/>
+      <ellipse cx="26" cy="270" rx="40" ry="72" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="0.8"/>
+      <!-- Saturn rings on horizontal stripes (horizontal ellipses) -->
+      <ellipse cx="115" cy="5" rx="55" ry="8" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.4"/>
+      <ellipse cx="115" cy="5" rx="68" ry="11" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="0.9"/>
+      <ellipse cx="115" cy="368" rx="55" ry="8" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.4"/>
+      <ellipse cx="115" cy="368" rx="68" ry="11" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="0.9"/>
+      <!-- Crescent moon RIGHT top -->
+      <path d="M197,55 A14,14 0 1,1 211,43 A9,9 0 1,0 197,55Z" fill="rgba(255,255,255,.82)"/>
+      <!-- Crescent moon LEFT bottom -->
+      <path d="M33,295 A14,14 0 1,1 47,283 A9,9 0 1,0 33,295Z" fill="rgba(255,255,255,.82)"/>
+      <!-- Crescent moon RIGHT bottom -->
+      <path d="M197,295 A14,14 0 1,1 211,283 A9,9 0 1,0 197,295Z" fill="rgba(255,255,255,.62)"/>
+      <!-- Crescent moon LEFT top (smaller) -->
+      <path d="M21,75 A10,10 0 1,1 31,65 A6.5,6.5 0 1,0 21,75Z" fill="rgba(255,255,255,.65)"/>
+      <!-- Stars on RIGHT vertical stripe -->
+      <polygon points="204,35 206,41 212.5,41 207.5,44.5 209.5,50.5 204,47 198.5,50.5 200.5,44.5 195.5,41 202,41" fill="rgba(255,255,255,.92)"/>
+      <polygon points="204,190 205.5,195 211,195 206.8,198 208.3,203 204,200 199.7,203 201.2,198 197,195 202.5,195" fill="rgba(255,255,255,.72)"/>
+      <polygon points="204,330 205.2,334 209.2,334 206.2,336 207.3,340 204,337.5 200.7,340 201.8,336 198.8,334 202.8,334" fill="rgba(255,255,255,.6)"/>
+      <!-- Stars on LEFT vertical stripe -->
+      <polygon points="26,155 28,161 34.5,161 29.5,164.5 31.5,170.5 26,167 20.5,170.5 22.5,164.5 17.5,161 24,161" fill="rgba(255,255,255,.88)"/>
+      <polygon points="26,330 27.5,335 33,335 28.8,338 30.3,343 26,340 21.7,343 23.2,338 19,335 24.5,335" fill="rgba(255,255,255,.7)"/>
+      <polygon points="26,68 27.2,72 31.2,72 28.2,74 29.3,78 26,75.5 22.7,78 23.8,74 20.8,72 24.8,72" fill="rgba(255,255,255,.58)"/>
+      <!-- Stars on horizontal top stripe -->
+      <polygon points="50,5 51,8 54.5,8 51.8,10 52.8,13 50,11 47.2,13 48.2,10 45.5,8 49,8" fill="rgba(255,255,255,.85)"/>
+      <polygon points="115,5 116,8 119.5,8 116.8,10 117.8,13 115,11 112.2,13 113.2,10 110.5,8 114,8" fill="rgba(255,255,255,.75)"/>
+      <polygon points="165,5 166,8 169.5,8 166.8,10 167.8,13 165,11 162.2,13 163.2,10 160.5,8 164,8" fill="rgba(255,255,255,.7)"/>
+      <!-- Stars on horizontal bottom stripe -->
+      <polygon points="50,368 51,371 54.5,371 51.8,373 52.8,376 50,374 47.2,376 48.2,373 45.5,371 49,371" fill="rgba(255,255,255,.85)"/>
+      <polygon points="115,368 116,371 119.5,371 116.8,373 117.8,376 115,374 112.2,376 113.2,373 110.5,371 114,371" fill="rgba(255,255,255,.75)"/>
+      <polygon points="165,368 166,371 169.5,371 166.8,373 167.8,376 165,374 162.2,376 163.2,373 160.5,371 164,371" fill="rgba(255,255,255,.7)"/>
+      <!-- Sparkle dots RIGHT stripe -->
+      <circle cx="190" cy="140" r="2.8" fill="rgba(255,255,255,.68)"/>
+      <circle cx="218" cy="170" r="2.2" fill="rgba(255,255,255,.55)"/>
+      <circle cx="190" cy="240" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="204" cy="360" r="2" fill="rgba(255,255,255,.52)"/>
+      <!-- Sparkle dots LEFT stripe -->
+      <circle cx="40" cy="140" r="2.8" fill="rgba(255,255,255,.68)"/>
+      <circle cx="12" cy="170" r="2.2" fill="rgba(255,255,255,.55)"/>
+      <circle cx="40" cy="230" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="26" cy="360" r="2" fill="rgba(255,255,255,.52)"/>
+      <!-- Sparkle dots horizontal stripes -->
+      <circle cx="85" cy="5" r="2.2" fill="rgba(255,255,255,.62)"/>
+      <circle cx="140" cy="5" r="1.8" fill="rgba(255,255,255,.52)"/>
+      <circle cx="85" cy="368" r="2.2" fill="rgba(255,255,255,.62)"/>
+      <circle cx="140" cy="368" r="1.8" fill="rgba(255,255,255,.52)"/>
+      <!-- Extra scattered sparkle dots center area -->
+      <circle cx="115" cy="130" r="1.6" fill="rgba(255,255,255,.28)"/>
+      <circle cx="115" cy="240" r="1.6" fill="rgba(255,255,255,.28)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <!-- Right stripe -->
+      <rect x="37" y="0" width="11" height="34" fill="${c}"/>
+      <rect x="34" y="0" width="3" height="34" fill="${c}" opacity="0.45"/>
+      <!-- Left stripe -->
+      <rect x="0" y="0" width="11" height="34" fill="${c}"/>
+      <rect x="11" y="0" width="3" height="34" fill="${c}" opacity="0.45"/>
+      <!-- Top & bottom horizontal bars -->
+      <rect x="0" y="0" width="48" height="3.5" fill="${c}"/>
+      <rect x="0" y="3.5" width="48" height="2" fill="${c}" opacity="0.42"/>
+      <rect x="0" y="30" width="48" height="4" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <line x1="39.5" y1="0" x2="39.5" y2="34" stroke="rgba(255,255,255,.2)" stroke-width="0.8"/>
+      <line x1="8.5" y1="0" x2="8.5" y2="34" stroke="rgba(255,255,255,.2)" stroke-width="0.8"/>
+      <line x1="0" y1="2" x2="48" y2="2" stroke="rgba(255,255,255,.2)" stroke-width="0.8"/>
+      <!-- Saturn ring RIGHT -->
+      <ellipse cx="42" cy="12" rx="6" ry="11" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.8"/>
+      <ellipse cx="42" cy="12" rx="7.5" ry="13.5" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="0.5"/>
+      <!-- Saturn ring LEFT -->
+      <ellipse cx="6" cy="22" rx="6" ry="11" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.8"/>
+      <!-- Stars RIGHT -->
+      <polygon points="41,5 41.8,7.5 44.5,7.5 42.5,9 43.3,11.5 41,10 38.7,11.5 39.5,9 37.5,7.5 40.2,7.5" fill="rgba(255,255,255,.88)"/>
+      <path d="M41,3.5 A3,3 0 1,1 44,1 A2,2 0 1,0 41,3.5Z" fill="rgba(255,255,255,.78)"/>
+      <!-- Stars LEFT -->
+      <polygon points="6,17 6.8,19.5 9.5,19.5 7.5,21 8.3,23.5 6,22 3.7,23.5 4.5,21 2.5,19.5 5.2,19.5" fill="rgba(255,255,255,.85)"/>
+      <path d="M6,15 A3,3 0 1,1 9,12.5 A2,2 0 1,0 6,15Z" fill="rgba(255,255,255,.72)"/>
+      <!-- Stars horizontal top -->
+      <polygon points="24,1.5 24.6,3.5 26.8,3.5 25.1,4.8 25.7,6.8 24,5.5 22.3,6.8 22.9,4.8 21.2,3.5 23.4,3.5" fill="rgba(255,255,255,.82)"/>
+      <!-- Dots -->
+      <circle cx="42" cy="27" r="1.2" fill="rgba(255,255,255,.6)"/>
+      <circle cx="6" cy="8" r="1.2" fill="rgba(255,255,255,.6)"/>`
+  },
+  {
+    id:'circle',label:'Circle',
+    svg:c=>`
+      <circle cx="230" cy="0" r="115" fill="${c}"/>
+      <circle cx="230" cy="0" r="135" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="2.8"/>
+      <circle cx="230" cy="0" r="153" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+      <circle cx="230" cy="0" r="172" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1.2"/>
+      <circle cx="0" cy="373" r="115" fill="${c}"/>
+      <circle cx="0" cy="373" r="135" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="2.8"/>
+      <circle cx="0" cy="373" r="153" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+      <circle cx="0" cy="373" r="172" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1.2"/>
+      ${whiteDotGrid()}
+      <!-- Saturn ring arcing across top circle -->
+      <ellipse cx="190" cy="30" rx="85" ry="20" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" transform="rotate(-12 190 30)"/>
+      <ellipse cx="190" cy="30" rx="100" ry="25" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.3" transform="rotate(-12 190 30)"/>
+      <ellipse cx="190" cy="30" rx="115" ry="30" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="0.8" transform="rotate(-12 190 30)"/>
+      <!-- Saturn ring arcing across bottom circle -->
+      <ellipse cx="40" cy="343" rx="85" ry="20" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" transform="rotate(-12 40 343)"/>
+      <ellipse cx="40" cy="343" rx="100" ry="25" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.3" transform="rotate(-12 40 343)"/>
+      <ellipse cx="40" cy="343" rx="115" ry="30" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="0.8" transform="rotate(-12 40 343)"/>
+      <!-- Big stars top circle -->
+      <polygon points="185,28 187.5,35 195,35 189,39.5 191.5,46.5 185,42 178.5,46.5 181,39.5 175,35 182.5,35" fill="rgba(255,255,255,.88)"/>
+      <polygon points="210,55 211.5,60 216.5,60 212.5,63 214,68 210,65 206,68 207.5,63 203.5,60 208.5,60" fill="rgba(255,255,255,.7)"/>
+      <polygon points="155,18 156.5,22.5 161.5,22.5 157.5,25.5 159,30 155,27 151,30 152.5,25.5 148.5,22.5 153.5,22.5" fill="rgba(255,255,255,.65)"/>
+      <polygon points="220,10 221,13 224.5,13 221.8,15 222.8,18 220,16 217.2,18 218.2,15 215.5,13 219,13" fill="rgba(255,255,255,.5)"/>
+      <!-- Big stars bottom circle -->
+      <polygon points="45,330 47.5,337 55,337 49,341.5 51.5,348.5 45,344 38.5,348.5 41,341.5 35,337 42.5,337" fill="rgba(255,255,255,.88)"/>
+      <polygon points="18,355 19.5,360 24.5,360 20.5,363 22,368 18,365 14,368 15.5,363 11.5,360 16.5,360" fill="rgba(255,255,255,.7)"/>
+      <polygon points="70,360 71.5,364.5 76.5,364.5 72.5,367.5 74,372 70,369 66,372 67.5,367.5 63.5,364.5 68.5,364.5" fill="rgba(255,255,255,.65)"/>
+      <polygon points="10,330 11,333 14.5,333 11.8,335 12.8,338 10,336 7.2,338 8.2,335 5.5,333 9,333" fill="rgba(255,255,255,.5)"/>
+      <!-- Sparkle dots top -->
+      <circle cx="218" cy="75" r="3" fill="rgba(255,255,255,.65)"/>
+      <circle cx="160" cy="8" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="200" cy="95" r="2" fill="rgba(255,255,255,.48)"/>
+      <circle cx="130" cy="45" r="1.8" fill="rgba(255,255,255,.42)"/>
+      <!-- Sparkle dots bottom -->
+      <circle cx="12" cy="298" r="3" fill="rgba(255,255,255,.65)"/>
+      <circle cx="70" cy="375" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="30" cy="278" r="2" fill="rgba(255,255,255,.48)"/>
+      <circle cx="100" cy="328" r="1.8" fill="rgba(255,255,255,.42)"/>
+      <!-- Crescent moons -->
+      <path d="M170,75 A14,14 0 1,1 184,63 A9,9 0 1,0 170,75Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M40,310 A14,14 0 1,1 54,298 A9,9 0 1,0 40,310Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <circle cx="48" cy="0" r="19" fill="${c}"/>
+      <circle cx="48" cy="0" r="23" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.5"/>
+      <circle cx="48" cy="0" r="27" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      <circle cx="0" cy="34" r="19" fill="${c}"/>
+      <circle cx="0" cy="34" r="23" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.5"/>
+      <circle cx="0" cy="34" r="27" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      ${whiteDotGridPre()}
+      <ellipse cx="38" cy="6" rx="16" ry="4.5" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(-12 38 6)"/>
+      <polygon points="30,5 31,8 34.5,8 31.8,10 32.8,13 30,11 27.2,13 28.2,10 25.5,8 29,8" fill="rgba(255,255,255,.85)"/>
+      <path d="M36,9 A4,4 0 1,1 40,6 A2.5,2.5 0 1,0 36,9Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M8,24 A4,4 0 1,1 12,21 A2.5,2.5 0 1,0 8,24Z" fill="rgba(255,255,255,.75)"/>`
+  },
+  {
+    id:'hex',label:'Hexagon',
+    svg:c=>`
+      <polygon points="0,0 230,0 230,72 115,112 0,72" fill="${c}"/>
+      <polygon points="0,301 115,261 230,301 230,373 0,373" fill="${c}"/>
+      ${whiteDotGrid()}
+      <polyline points="0,77 115,117 230,77" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.8"/>
+      <polyline points="0,296 115,256 230,296" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.8"/>
+      <ellipse cx="115" cy="50" rx="55" ry="14" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.8"/>
+      <ellipse cx="115" cy="50" rx="68" ry="17" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.1"/>
+      <ellipse cx="115" cy="50" rx="82" ry="21" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="0.8"/>
+      <ellipse cx="115" cy="323" rx="55" ry="14" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.8"/>
+      <ellipse cx="115" cy="323" rx="68" ry="17" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.1"/>
+      <ellipse cx="115" cy="323" rx="82" ry="21" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="0.8"/>
+      <polygon points="40,25 41.4,29.5 46,29.5 42.5,32.1 43.9,36.6 40,34 36.1,36.6 37.5,32.1 34,29.5 38.6,29.5" fill="rgba(255,255,255,.75)"/>
+      <polygon points="190,25 191.4,29.5 196,29.5 192.5,32.1 193.9,36.6 190,34 186.1,36.6 187.5,32.1 184,29.5 188.6,29.5" fill="rgba(255,255,255,.75)"/>
+      <polygon points="40,298 41.4,302.5 46,302.5 42.5,305.1 43.9,309.6 40,307 36.1,309.6 37.5,305.1 34,302.5 38.6,302.5" fill="rgba(255,255,255,.75)"/>
+      <polygon points="190,298 191.4,302.5 196,302.5 192.5,305.1 193.9,309.6 190,307 186.1,309.6 187.5,305.1 184,302.5 188.6,302.5" fill="rgba(255,255,255,.75)"/>
+      <polygon points="115,8 117,14 123,14 118,18 120,24 115,20 110,24 112,18 107,14 113,14" fill="rgba(255,255,255,.82)"/>
+      <polygon points="115,355 117,361 123,361 118,365 120,371 115,367 110,371 112,365 107,361 113,361" fill="rgba(255,255,255,.82)"/>
+      <circle cx="72" cy="45" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="158" cy="45" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="72" cy="328" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="158" cy="328" r="2.5" fill="rgba(255,255,255,.6)"/>
+      <circle cx="20" cy="55" r="2" fill="rgba(255,255,255,.45)"/>
+      <circle cx="210" cy="55" r="2" fill="rgba(255,255,255,.45)"/>
+      <path d="M95,48 A14,14 0 1,1 109,36 A9,9 0 1,0 95,48Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M120,305 A14,14 0 1,1 134,293 A9,9 0 1,0 120,305Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <polygon points="0,0 48,0 48,10 24,16 0,10" fill="${c}"/>
+      <polygon points="0,24 24,18 48,24 48,34 0,34" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <polyline points="0,11 24,17 48,11" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+      <ellipse cx="24" cy="7" rx="12" ry="3.5" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="0.8"/>
+      <ellipse cx="24" cy="7" rx="15" ry="4.5" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="0.6"/>
+      <polygon points="10,4 10.8,6.5 13.5,6.5 11.5,8 12.3,10.5 10,9 7.7,10.5 8.5,8 6.5,6.5 9.2,6.5" fill="rgba(255,255,255,.75)"/>
+      <polygon points="38,4 38.8,6.5 41.5,6.5 39.5,8 40.3,10.5 38,9 35.7,10.5 36.5,8 34.5,6.5 37.2,6.5" fill="rgba(255,255,255,.75)"/>
+      <path d="M22,6 A4,4 0 1,1 26,3 A2.5,2.5 0 1,0 22,6Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M22,26 A4,4 0 1,1 26,23 A2.5,2.5 0 1,0 22,26Z" fill="rgba(255,255,255,.75)"/>`
+  },
+  {
+    id:'wave',label:'Wave',
+    svg:c=>`
+      <rect x="0" y="0" width="230" height="62" fill="${c}"/>
+      <path d="M0,62 Q57.5,92 115,62 Q172.5,32 230,62 L230,88 Q172.5,58 115,88 Q57.5,118 0,88Z" fill="${c}"/>
+      <path d="M-10,308 Q110,276 240,308 L240,373 L-10,373Z" fill="${c}"/>
+      ${whiteDotGrid()}
+      <path d="M0,303 Q115,271 230,303" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2.8"/>
+      <path d="M0,313 Q115,281 230,313" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+      <!-- Saturn ring over top wave -->
+      <ellipse cx="115" cy="42" rx="60" ry="15" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.8"/>
+      <ellipse cx="115" cy="42" rx="75" ry="19" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.1"/>
+      <ellipse cx="115" cy="42" rx="90" ry="23" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="0.8"/>
+      <polygon points="30,18 31.5,23 36.5,23 32.5,26 34,31 30,28 26,31 27.5,26 23.5,23 28.5,23" fill="rgba(255,255,255,.85)"/>
+      <polygon points="115,12 116.4,16.5 121,16.5 117.5,19.1 118.9,23.6 115,21 111.1,23.6 112.5,19.1 109,16.5 113.6,16.5" fill="rgba(255,255,255,.72)"/>
+      <polygon points="200,18 201.5,23 206.5,23 202.5,26 204,31 200,28 196,31 197.5,26 193.5,23 198.5,23" fill="rgba(255,255,255,.85)"/>
+      <polygon points="50,330 51.4,334.5 56,334.5 52.5,337.1 53.9,341.6 50,339 46.1,341.6 47.5,337.1 44,334.5 48.6,334.5" fill="rgba(255,255,255,.78)"/>
+      <polygon points="140,318 141.4,322.5 146,322.5 142.5,325.1 143.9,329.6 140,327 136.1,329.6 137.5,325.1 134,322.5 138.6,322.5" fill="rgba(255,255,255,.62)"/>
+      <polygon points="180,340 181.2,344 185.2,344 182.2,346 183.3,350 180,347.5 176.7,350 177.8,346 174.8,344 178.8,344" fill="rgba(255,255,255,.55)"/>
+      <circle cx="72" cy="28" r="2.5" fill="rgba(255,255,255,.65)"/>
+      <circle cx="165" cy="22" r="2.5" fill="rgba(255,255,255,.65)"/>
+      <circle cx="10" cy="40" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="220" cy="40" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="100" cy="345" r="2.5" fill="rgba(255,255,255,.65)"/>
+      <circle cx="20" cy="350" r="2" fill="rgba(255,255,255,.5)"/>
+      <path d="M190,40 A14,14 0 1,1 204,28 A9,9 0 1,0 190,40Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M36,325 A14,14 0 1,1 50,313 A9,9 0 1,0 36,325Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <rect x="0" y="0" width="48" height="8" fill="${c}"/>
+      <path d="M0,8 Q12,13 24,8 Q36,3 48,8 L48,13 Q36,8 24,13 Q12,18 0,13Z" fill="${c}"/>
+      <path d="M-2,26 Q24,21 50,26 L50,34 L-2,34Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <ellipse cx="24" cy="5" rx="12" ry="3.5" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="0.8"/>
+      <polygon points="10,3 10.8,5.5 13.5,5.5 11.5,7 12.3,9.5 10,8 7.7,9.5 8.5,7 6.5,5.5 9.2,5.5" fill="rgba(255,255,255,.85)"/>
+      <polygon points="38,3 38.8,5.5 41.5,5.5 39.5,7 40.3,9.5 38,8 35.7,9.5 36.5,7 34.5,5.5 37.2,5.5" fill="rgba(255,255,255,.85)"/>
+      <path d="M24,3 A4,4 0 1,1 28,0.5 A2.5,2.5 0 1,0 24,3Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M24,27 A4,4 0 1,1 28,24 A2.5,2.5 0 1,0 24,27Z" fill="rgba(255,255,255,.75)"/>`
+  },
+
+  {
+    id:'diamond',label:'Diamond',
+    svg:c=>`
+      <rect x="128" y="-70" width="130" height="130" rx="6" transform="rotate(45 193 -5)" fill="${c}"/>
+      <rect x="128" y="-70" width="130" height="130" rx="6" transform="rotate(45 193 -5)" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="3"/>
+      <rect x="128" y="-70" width="150" height="150" rx="8" transform="rotate(45 193 -5)" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.8"/>
+      <rect x="128" y="-70" width="170" height="170" rx="10" transform="rotate(45 193 -5)" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+      <rect x="-58" y="243" width="130" height="130" rx="6" transform="rotate(45 7 308)" fill="${c}"/>
+      <rect x="-58" y="243" width="130" height="130" rx="6" transform="rotate(45 7 308)" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="3"/>
+      <rect x="-58" y="243" width="150" height="150" rx="8" transform="rotate(45 7 308)" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.8"/>
+      <rect x="-58" y="243" width="170" height="170" rx="10" transform="rotate(45 7 308)" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+      ${whiteDotGrid()}
+      <!-- Saturn ring around top diamond -->
+      <ellipse cx="193" cy="35" rx="90" ry="22" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.8" transform="rotate(45 193 35)"/>
+      <ellipse cx="193" cy="35" rx="105" ry="26" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.2" transform="rotate(45 193 35)"/>
+      <!-- Stars top diamond -->
+      <polygon points="135,18 137.5,25 145,25 139,29.5 141.5,36.5 135,32 128.5,36.5 131,29.5 125,25 132.5,25" fill="rgba(255,255,255,.88)"/>
+      <polygon points="220,35 221.5,40 227,40 222.8,43 224.3,48 220,45 215.7,48 217.2,43 213,40 218.5,40" fill="rgba(255,255,255,.7)"/>
+      <polygon points="185,70 186.5,74.5 191.5,74.5 187.5,77.5 189,82 185,79 181,82 182.5,77.5 178.5,74.5 183.5,74.5" fill="rgba(255,255,255,.6)"/>
+      <polygon points="215,8 216,11 219.5,11 216.8,13 217.8,16 215,14 212.2,16 213.2,13 210.5,11 214,11" fill="rgba(255,255,255,.5)"/>
+      <!-- Stars bottom diamond -->
+      <polygon points="35,290 37.5,297 45,297 39,301.5 41.5,308.5 35,304 28.5,308.5 31,301.5 25,297 32.5,297" fill="rgba(255,255,255,.88)"/>
+      <polygon points="10,345 11.5,350 17,350 12.8,353 14.3,358 10,355 5.7,358 7.2,353 3,350 8.5,350" fill="rgba(255,255,255,.7)"/>
+      <polygon points="45,340 46.5,344.5 51.5,344.5 47.5,347.5 49,352 45,349 41,352 42.5,347.5 38.5,344.5 43.5,344.5" fill="rgba(255,255,255,.6)"/>
+      <polygon points="15,305 16,308 19.5,308 16.8,310 17.8,313 15,311 12.2,313 13.2,310 10.5,308 14,308" fill="rgba(255,255,255,.5)"/>
+      <!-- Sparkle dots top -->
+      <circle cx="200" cy="12" r="3" fill="rgba(255,255,255,.65)"/>
+      <circle cx="155" cy="8" r="2.5" fill="rgba(255,255,255,.55)"/>
+      <circle cx="228" cy="65" r="2" fill="rgba(255,255,255,.48)"/>
+      <circle cx="165" cy="72" r="1.8" fill="rgba(255,255,255,.42)"/>
+      <!-- Sparkle dots bottom -->
+      <circle cx="30" cy="372" r="3" fill="rgba(255,255,255,.65)"/>
+      <circle cx="75" cy="368" r="2.5" fill="rgba(255,255,255,.55)"/>
+      <circle cx="2" cy="330" r="2" fill="rgba(255,255,255,.48)"/>
+      <circle cx="65" cy="295" r="1.8" fill="rgba(255,255,255,.42)"/>
+      <!-- Crescent moons -->
+      <path d="M178,48 A14,14 0 1,1 192,36 A9,9 0 1,0 178,48Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M38,310 A14,14 0 1,1 52,298 A9,9 0 1,0 38,310Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <rect x="30" y="-12" width="26" height="26" rx="2" transform="rotate(45 43 1)" fill="${c}"/>
+      <rect x="30" y="-12" width="30" height="30" rx="3" transform="rotate(45 43 1)" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1"/>
+      <rect x="30" y="-12" width="34" height="34" rx="4" transform="rotate(45 43 1)" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="0.7"/>
+      <rect x="-8" y="20" width="26" height="26" rx="2" transform="rotate(45 5 33)" fill="${c}"/>
+      <rect x="-8" y="20" width="30" height="30" rx="3" transform="rotate(45 5 33)" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1"/>
+      ${whiteDotGridPre()}
+      <polygon points="28,4 28.8,6.5 31.5,6.5 29.5,8 30.3,10.5 28,9 25.7,10.5 26.5,8 24.5,6.5 27.2,6.5" fill="rgba(255,255,255,.85)"/>
+      <path d="M38,6 A4,4 0 1,1 42,3 A2.5,2.5 0 1,0 38,6Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M8,26 A4,4 0 1,1 12,23 A2.5,2.5 0 1,0 8,26Z" fill="rgba(255,255,255,.75)"/>`
+  },
+
+  /* ══════════════════════════════════════
+     4 MOTIF BARU
+  ══════════════════════════════════════ */
+
+  /* 1. Galaksi / Spiral Galaxy */
+  {
+    id:'galaxy',label:'Galaxy',
+    svg:c=>`
+      <!-- Top corner galaxy blob -->
+      <path d="M230,0 Q180,0 160,40 Q140,80 180,100 Q220,120 230,80Z" fill="${c}"/>
+      <!-- Bottom corner galaxy blob -->
+      <path d="M0,373 Q50,373 70,333 Q90,293 50,273 Q10,253 0,293Z" fill="${c}"/>
+      ${whiteDotGrid()}
+      <!-- Spiral rings top -->
+      <ellipse cx="195" cy="55" rx="55" ry="30" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" transform="rotate(-30 195 55)"/>
+      <ellipse cx="195" cy="55" rx="70" ry="40" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.4" transform="rotate(-30 195 55)"/>
+      <ellipse cx="195" cy="55" rx="85" ry="50" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="0.9" transform="rotate(-30 195 55)"/>
+      <ellipse cx="195" cy="55" rx="100" ry="60" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="0.6" transform="rotate(-30 195 55)"/>
+      <!-- Spiral rings bottom -->
+      <ellipse cx="35" cy="318" rx="55" ry="30" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2" transform="rotate(-30 35 318)"/>
+      <ellipse cx="35" cy="318" rx="70" ry="40" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.4" transform="rotate(-30 35 318)"/>
+      <ellipse cx="35" cy="318" rx="85" ry="50" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="0.9" transform="rotate(-30 35 318)"/>
+      <!-- Stars scattered top -->
+      <polygon points="175,15 177.5,22 185,22 179,26.5 181.5,33.5 175,29 168.5,33.5 171,26.5 165,22 172.5,22" fill="rgba(255,255,255,.9)"/>
+      <polygon points="220,8 221.5,13 227,13 222.8,16 224.3,21 220,18 215.7,21 217.2,16 213,13 218.5,13" fill="rgba(255,255,255,.72)"/>
+      <polygon points="148,50 149.5,54.5 154.5,54.5 150.5,57.5 152,62 148,59 144,62 145.5,57.5 141.5,54.5 146.5,54.5" fill="rgba(255,255,255,.62)"/>
+      <polygon points="218,85 219.2,89 223.2,89 220.2,91 221.3,95 218,92.5 214.7,95 215.8,91 212.8,89 216.8,89" fill="rgba(255,255,255,.52)"/>
+      <polygon points="200,35 200.8,37.5 203.5,37.5 201.5,39 202.3,41.5 200,40 197.7,41.5 198.5,39 196.5,37.5 199.2,37.5" fill="rgba(255,255,255,.48)"/>
+      <!-- Stars scattered bottom -->
+      <polygon points="55,340 57.5,347 65,347 59,351.5 61.5,358.5 55,354 48.5,358.5 51,351.5 45,347 52.5,347" fill="rgba(255,255,255,.9)"/>
+      <polygon points="10,370 11.5,375 17,375 12.8,378 14.3,383 10,380 5.7,383 7.2,378 3,375 8.5,375" fill="rgba(255,255,255,.72)"/>
+      <polygon points="82,300 83.5,304.5 88.5,304.5 84.5,307.5 86,312 82,309 78,312 79.5,307.5 75.5,304.5 80.5,304.5" fill="rgba(255,255,255,.62)"/>
+      <polygon points="12,300 13,303 16.5,303 13.8,305 14.8,308 12,306 9.2,308 10.2,305 7.5,303 11,303" fill="rgba(255,255,255,.52)"/>
+      <!-- Sparkle dots -->
+      <circle cx="210" cy="18" r="3" fill="rgba(255,255,255,.68)"/>
+      <circle cx="160" cy="30" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="228" cy="50" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="145" cy="80" r="1.8" fill="rgba(255,255,255,.44)"/>
+      <circle cx="125" cy="60" r="1.5" fill="rgba(255,255,255,.38)"/>
+      <circle cx="20" cy="355" r="3" fill="rgba(255,255,255,.68)"/>
+      <circle cx="70" cy="370" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="2" cy="340" r="2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="85" cy="345" r="1.8" fill="rgba(255,255,255,.44)"/>
+      <circle cx="105" cy="315" r="1.5" fill="rgba(255,255,255,.38)"/>
+      <!-- Crescent moons -->
+      <path d="M205,65 A14,14 0 1,1 219,53 A9,9 0 1,0 205,65Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M25,310 A14,14 0 1,1 39,298 A9,9 0 1,0 25,310Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <path d="M48,0 Q38,0 34,8 Q30,16 38,20 Q46,24 48,16Z" fill="${c}"/>
+      <path d="M0,34 Q10,34 14,26 Q18,18 10,14 Q2,10 0,18Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <ellipse cx="41" cy="10" rx="11" ry="6" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(-30 41 10)"/>
+      <ellipse cx="41" cy="10" rx="14" ry="8" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="0.6" transform="rotate(-30 41 10)"/>
+      <ellipse cx="7" cy="24" rx="11" ry="6" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(-30 7 24)"/>
+      <polygon points="32,5 33,8 36.5,8 33.8,10 34.8,13 32,11 29.2,13 30.2,10 27.5,8 31,8" fill="rgba(255,255,255,.88)"/>
+      <path d="M42,8 A3.5,3.5 0 1,1 45.5,5 A2.2,2.2 0 1,0 42,8Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M6,22 A3.5,3.5 0 1,1 9.5,19 A2.2,2.2 0 1,0 6,22Z" fill="rgba(255,255,255,.75)"/>`
+  },
+
+  /* 2. Aurora / Flowing Bands */
+  {
+    id:'aurora',label:'Aurora',
+    svg:c=>`
+      <!-- Flowing curved bands top -->
+      <path d="M0,0 Q115,45 230,0 L230,55 Q115,100 0,55Z" fill="${c}"/>
+      <path d="M0,0 Q115,20 230,0 L230,22 Q115,42 0,22Z" fill="${c}" opacity="0.55"/>
+      <!-- Flowing curved bands bottom -->
+      <path d="M0,318 Q115,273 230,318 L230,373 L0,373Z" fill="${c}"/>
+      <path d="M0,351 Q115,306 230,351 L230,373 L0,373Z" fill="${c}" opacity="0.55"/>
+      ${whiteDotGrid()}
+      <!-- Shimmer lines top -->
+      <path d="M0,60 Q57.5,105 115,60 Q172.5,15 230,60" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2.5"/>
+      <path d="M0,75 Q57.5,120 115,75 Q172.5,30 230,75" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <path d="M0,88 Q57.5,133 115,88 Q172.5,43 230,88" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1"/>
+      <!-- Shimmer lines bottom -->
+      <path d="M0,313 Q115,268 230,313" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2.5"/>
+      <path d="M0,298 Q115,253 230,298" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <!-- Saturn ring top area -->
+      <ellipse cx="115" cy="30" rx="65" ry="15" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.8"/>
+      <ellipse cx="115" cy="30" rx="80" ry="19" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.1"/>
+      <!-- Stars top -->
+      <polygon points="30,15 32,21 38.5,21 33.5,24.5 35.5,30.5 30,27 24.5,30.5 26.5,24.5 21.5,21 28,21" fill="rgba(255,255,255,.88)"/>
+      <polygon points="115,8 116.5,12.5 121.5,12.5 117.5,15.5 119,20 115,17 111,20 112.5,15.5 108.5,12.5 113.5,12.5" fill="rgba(255,255,255,.8)"/>
+      <polygon points="200,15 201.5,19.5 206.5,19.5 202.5,22.5 204,27 200,24 196,27 197.5,22.5 193.5,19.5 198.5,19.5" fill="rgba(255,255,255,.88)"/>
+      <polygon points="72,35 73.2,38.8 77.2,38.8 74.2,41 75.3,44.8 72,42.5 68.7,44.8 69.8,41 66.8,38.8 70.8,38.8" fill="rgba(255,255,255,.62)"/>
+      <polygon points="158,35 159.2,38.8 163.2,38.8 160.2,41 161.3,44.8 158,42.5 154.7,44.8 155.8,41 152.8,38.8 156.8,38.8" fill="rgba(255,255,255,.62)"/>
+      <!-- Stars bottom -->
+      <polygon points="30,338 32,344 38.5,344 33.5,347.5 35.5,353.5 30,350 24.5,353.5 26.5,347.5 21.5,344 28,344" fill="rgba(255,255,255,.88)"/>
+      <polygon points="115,345 116.5,349.5 121.5,349.5 117.5,352.5 119,357 115,354 111,357 112.5,352.5 108.5,349.5 113.5,349.5" fill="rgba(255,255,255,.8)"/>
+      <polygon points="200,338 201.5,342.5 206.5,342.5 202.5,345.5 204,350 200,347 196,350 197.5,345.5 193.5,342.5 198.5,342.5" fill="rgba(255,255,255,.88)"/>
+      <!-- Sparkle dots -->
+      <circle cx="50" cy="8" r="2.8" fill="rgba(255,255,255,.65)"/>
+      <circle cx="180" cy="8" r="2.8" fill="rgba(255,255,255,.65)"/>
+      <circle cx="10" cy="30" r="2.2" fill="rgba(255,255,255,.52)"/>
+      <circle cx="220" cy="30" r="2.2" fill="rgba(255,255,255,.52)"/>
+      <circle cx="50" cy="365" r="2.8" fill="rgba(255,255,255,.65)"/>
+      <circle cx="180" cy="365" r="2.8" fill="rgba(255,255,255,.65)"/>
+      <circle cx="10" cy="345" r="2.2" fill="rgba(255,255,255,.52)"/>
+      <!-- Crescent moons -->
+      <path d="M190,48 A14,14 0 1,1 204,36 A9,9 0 1,0 190,48Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M40,305 A14,14 0 1,1 54,293 A9,9 0 1,0 40,305Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <path d="M0,0 Q24,10 48,0 L48,11 Q24,21 0,11Z" fill="${c}"/>
+      <path d="M0,0 Q24,4.5 48,0 L48,5 Q24,9.5 0,5Z" fill="${c}" opacity="0.55"/>
+      <path d="M0,23 Q24,13 48,23 L48,34 L0,34Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <path d="M0,12 Q12,22 24,12 Q36,2 48,12" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="0.9"/>
+      <ellipse cx="24" cy="6" rx="14" ry="3.5" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="0.7"/>
+      <polygon points="10,3 10.8,5.5 13.5,5.5 11.5,7 12.3,9.5 10,8 7.7,9.5 8.5,7 6.5,5.5 9.2,5.5" fill="rgba(255,255,255,.85)"/>
+      <polygon points="38,3 38.8,5.5 41.5,5.5 39.5,7 40.3,9.5 38,8 35.7,9.5 36.5,7 34.5,5.5 37.2,5.5" fill="rgba(255,255,255,.85)"/>
+      <path d="M24,3 A3.5,3.5 0 1,1 27.5,0.5 A2.2,2.2 0 1,0 24,3Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M24,28 A3.5,3.5 0 1,1 27.5,25 A2.2,2.2 0 1,0 24,28Z" fill="rgba(255,255,255,.75)"/>`
+  },
+
+  /* 3. Nebula / Corner Burst */
+  {
+    id:'nebula',label:'Nebula',
+    svg:c=>`
+      <!-- Top-left burst -->
+      <path d="M0,0 L130,0 L0,130Z" fill="${c}"/>
+      <!-- Bottom-right burst -->
+      <path d="M230,373 L100,373 L230,243Z" fill="${c}"/>
+      <!-- Top-right accent -->
+      <path d="M230,0 L230,65 Q210,55 195,35 Q180,15 210,0Z" fill="${c}" opacity="0.6"/>
+      <!-- Bottom-left accent -->
+      <path d="M0,373 L0,308 Q20,318 35,338 Q50,358 20,373Z" fill="${c}" opacity="0.6"/>
+      ${whiteDotGrid()}
+      <!-- Burst lines top-left -->
+      <line x1="0" y1="0" x2="140" y2="0" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="0" y1="0" x2="0" y2="140" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="0" y1="0" x2="125" y2="125" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
+      <line x1="0" y1="0" x2="90" y2="130" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <line x1="0" y1="0" x2="130" y2="90" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <!-- Burst lines bottom-right -->
+      <line x1="230" y1="373" x2="90" y2="373" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="230" y1="373" x2="230" y2="233" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+      <line x1="230" y1="373" x2="105" y2="248" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
+      <!-- Saturn arcs top-left -->
+      <ellipse cx="55" cy="55" rx="60" ry="15" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" transform="rotate(45 55 55)"/>
+      <ellipse cx="55" cy="55" rx="75" ry="19" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1.3" transform="rotate(45 55 55)"/>
+      <ellipse cx="55" cy="55" rx="90" ry="23" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="0.8" transform="rotate(45 55 55)"/>
+      <!-- Saturn arcs bottom-right -->
+      <ellipse cx="175" cy="318" rx="60" ry="15" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" transform="rotate(45 175 318)"/>
+      <ellipse cx="175" cy="318" rx="75" ry="19" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="1.3" transform="rotate(45 175 318)"/>
+      <!-- Stars top-left -->
+      <polygon points="35,15 37.5,22 45,22 39,26.5 41.5,33.5 35,29 28.5,33.5 31,26.5 25,22 32.5,22" fill="rgba(255,255,255,.92)"/>
+      <polygon points="85,10 86.5,15 92,15 87.8,18 89.3,23 85,20 80.7,23 82.2,18 78,15 83.5,15" fill="rgba(255,255,255,.75)"/>
+      <polygon points="15,65 16.5,69.5 21.5,69.5 17.5,72.5 19,77 15,74 11,77 12.5,72.5 8.5,69.5 13.5,69.5" fill="rgba(255,255,255,.68)"/>
+      <polygon points="55,38 56.2,42 60.2,42 57.2,44 58.3,48 55,45.5 51.7,48 52.8,44 49.8,42 53.8,42" fill="rgba(255,255,255,.6)"/>
+      <polygon points="108,28 109,31 112.5,31 109.8,33 110.8,36 108,34 105.2,36 106.2,33 103.5,31 107,31" fill="rgba(255,255,255,.5)"/>
+      <!-- Stars bottom-right -->
+      <polygon points="195,350 197.5,357 205,357 199,361.5 201.5,368.5 195,364 188.5,368.5 191,361.5 185,357 192.5,357" fill="rgba(255,255,255,.92)"/>
+      <polygon points="145,363 146.5,368 152,368 147.8,371 149.3,376 145,373 140.7,376 142.2,371 138,368 143.5,368" fill="rgba(255,255,255,.75)"/>
+      <polygon points="215,308 216.5,312.5 221.5,312.5 217.5,315.5 219,320 215,317 211,320 212.5,315.5 208.5,312.5 213.5,312.5" fill="rgba(255,255,255,.68)"/>
+      <!-- Sparkle dots -->
+      <circle cx="12" cy="25" r="3" fill="rgba(255,255,255,.68)"/>
+      <circle cx="65" cy="12" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="110" cy="55" r="2.2" fill="rgba(255,255,255,.5)"/>
+      <circle cx="28" cy="90" r="2" fill="rgba(255,255,255,.44)"/>
+      <circle cx="218" cy="348" r="3" fill="rgba(255,255,255,.68)"/>
+      <circle cx="165" cy="360" r="2.5" fill="rgba(255,255,255,.58)"/>
+      <circle cx="120" cy="318" r="2.2" fill="rgba(255,255,255,.5)"/>
+      <!-- Crescent moons -->
+      <path d="M90,62 A14,14 0 1,1 104,50 A9,9 0 1,0 90,62Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M140,310 A14,14 0 1,1 154,298 A9,9 0 1,0 140,310Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <path d="M0,0 L26,0 L0,26Z" fill="${c}"/>
+      <path d="M48,34 L22,34 L48,8Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <line x1="0" y1="0" x2="25" y2="25" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+      <ellipse cx="11" cy="11" rx="12" ry="3.5" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="0.8" transform="rotate(45 11 11)"/>
+      <ellipse cx="11" cy="11" rx="15" ry="4.5" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="0.6" transform="rotate(45 11 11)"/>
+      <polygon points="7,5 7.8,7.5 10.5,7.5 8.5,9 9.3,11.5 7,10 4.7,11.5 5.5,9 3.5,7.5 6.2,7.5" fill="rgba(255,255,255,.9)"/>
+      <path d="M18,3 A3.5,3.5 0 1,1 21.5,0.5 A2.2,2.2 0 1,0 18,3Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M30,30 A3.5,3.5 0 1,1 33.5,27 A2.2,2.2 0 1,0 30,30Z" fill="rgba(255,255,255,.75)"/>`
+  },
+
+  /* 4. Frost / Ice Crystal */
+  {
+    id:'frost',label:'Frost',
+    svg:c=>`
+      <!-- Frost corner top -->
+      <path d="M0,0 Q80,0 130,0 Q115,50 75,80 Q35,110 0,100Z" fill="${c}"/>
+      <!-- Frost corner bottom -->
+      <path d="M230,373 Q150,373 100,373 Q115,323 155,293 Q195,263 230,273Z" fill="${c}"/>
+      ${whiteDotGrid()}
+      <!-- Ice crystal lattice lines top -->
+      <line x1="0" y1="0" x2="115" y2="115" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+      <line x1="65" y1="0" x2="65" y2="90" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <line x1="0" y1="50" x2="90" y2="50" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <line x1="0" y1="0" x2="130" y2="0" stroke="rgba(255,255,255,.12)" stroke-width="0.8"/>
+      <line x1="30" y1="0" x2="0" y2="30" stroke="rgba(255,255,255,.12)" stroke-width="0.8"/>
+      <line x1="60" y1="0" x2="0" y2="60" stroke="rgba(255,255,255,.12)" stroke-width="0.8"/>
+      <line x1="90" y1="0" x2="0" y2="90" stroke="rgba(255,255,255,.12)" stroke-width="0.8"/>
+      <line x1="120" y1="0" x2="0" y2="120" stroke="rgba(255,255,255,.08)" stroke-width="0.6"/>
+      <!-- Ice crystal lattice lines bottom -->
+      <line x1="230" y1="373" x2="115" y2="258" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+      <line x1="165" y1="373" x2="165" y2="283" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <line x1="230" y1="323" x2="140" y2="323" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+      <line x1="200" y1="373" x2="230" y2="343" stroke="rgba(255,255,255,.12)" stroke-width="0.8"/>
+      <line x1="170" y1="373" x2="230" y2="313" stroke="rgba(255,255,255,.08)" stroke-width="0.6"/>
+      <!-- Saturn rings top -->
+      <ellipse cx="65" cy="50" rx="62" ry="16" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="2" transform="rotate(35 65 50)"/>
+      <ellipse cx="65" cy="50" rx="76" ry="19" fill="none" stroke="rgba(255,255,255,.24)" stroke-width="1.3" transform="rotate(35 65 50)"/>
+      <ellipse cx="65" cy="50" rx="90" ry="23" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="0.8" transform="rotate(35 65 50)"/>
+      <!-- Saturn rings bottom -->
+      <ellipse cx="165" cy="323" rx="62" ry="16" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="2" transform="rotate(35 165 323)"/>
+      <ellipse cx="165" cy="323" rx="76" ry="19" fill="none" stroke="rgba(255,255,255,.24)" stroke-width="1.3" transform="rotate(35 165 323)"/>
+      <!-- Stars top -->
+      <polygon points="48,15 50.5,22 58,22 52,26.5 54.5,33.5 48,29 41.5,33.5 44,26.5 38,22 45.5,22" fill="rgba(255,255,255,.92)"/>
+      <polygon points="100,12 101.5,17 107,17 102.8,20 104.3,25 100,22 95.7,25 97.2,20 93,17 98.5,17" fill="rgba(255,255,255,.72)"/>
+      <polygon points="18,68 19.5,72.5 24.5,72.5 20.5,75.5 22,80 18,77 14,80 15.5,75.5 11.5,72.5 16.5,72.5" fill="rgba(255,255,255,.65)"/>
+      <polygon points="80,75 81.2,79 85.2,79 82.2,81 83.3,85 80,82.5 76.7,85 77.8,81 74.8,79 78.8,79" fill="rgba(255,255,255,.55)"/>
+      <polygon points="20,25 20.8,27.5 23.5,27.5 21.5,29 22.3,31.5 20,30 17.7,31.5 18.5,29 16.5,27.5 19.2,27.5" fill="rgba(255,255,255,.5)"/>
+      <!-- Stars bottom -->
+      <polygon points="182,355 184.5,362 192,362 186,366.5 188.5,373.5 182,369 175.5,373.5 178,366.5 172,362 179.5,362" fill="rgba(255,255,255,.92)"/>
+      <polygon points="130,360 131.5,365 137,365 132.8,368 134.3,373 130,370 125.7,373 127.2,368 123,365 128.5,365" fill="rgba(255,255,255,.72)"/>
+      <polygon points="212,308 213.5,312.5 218.5,312.5 214.5,315.5 216,320 212,317 208,320 209.5,315.5 205.5,312.5 210.5,312.5" fill="rgba(255,255,255,.65)"/>
+      <!-- Sparkle dots -->
+      <circle cx="8" cy="8" r="3.2" fill="rgba(255,255,255,.72)"/>
+      <circle cx="30" cy="5" r="2.5" fill="rgba(255,255,255,.62)"/>
+      <circle cx="5" cy="35" r="2.5" fill="rgba(255,255,255,.55)"/>
+      <circle cx="70" cy="15" r="2" fill="rgba(255,255,255,.52)"/>
+      <circle cx="110" cy="38" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <circle cx="35" cy="95" r="1.8" fill="rgba(255,255,255,.42)"/>
+      <circle cx="222" cy="365" r="3.2" fill="rgba(255,255,255,.72)"/>
+      <circle cx="200" cy="368" r="2.5" fill="rgba(255,255,255,.62)"/>
+      <circle cx="225" cy="338" r="2.5" fill="rgba(255,255,255,.55)"/>
+      <circle cx="160" cy="355" r="2" fill="rgba(255,255,255,.52)"/>
+      <circle cx="120" cy="335" r="1.8" fill="rgba(255,255,255,.45)"/>
+      <!-- Crescent moons -->
+      <path d="M102,55 A14,14 0 1,1 116,43 A9,9 0 1,0 102,55Z" fill="rgba(255,255,255,.78)"/>
+      <path d="M128,318 A14,14 0 1,1 142,306 A9,9 0 1,0 128,318Z" fill="rgba(255,255,255,.78)"/>`,
+    pre:c=>`<rect width="48" height="34" fill="white"/>
+      <path d="M0,0 Q27,0 35,0 Q31,12 20,20 Q9,28 0,24Z" fill="${c}"/>
+      <path d="M48,34 Q21,34 13,34 Q17,22 28,14 Q39,6 48,10Z" fill="${c}"/>
+      ${whiteDotGridPre()}
+      <line x1="0" y1="0" x2="26" y2="26" stroke="rgba(255,255,255,.3)" stroke-width="0.9"/>
+      <line x1="16" y1="0" x2="16" y2="22" stroke="rgba(255,255,255,.18)" stroke-width="0.7"/>
+      <line x1="0" y1="14" x2="22" y2="14" stroke="rgba(255,255,255,.18)" stroke-width="0.7"/>
+      <ellipse cx="12" cy="12" rx="13" ry="3.5" fill="none" stroke="rgba(255,255,255,.52)" stroke-width="0.8" transform="rotate(35 12 12)"/>
+      <ellipse cx="12" cy="12" rx="16" ry="4.5" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="0.6" transform="rotate(35 12 12)"/>
+      <polygon points="12,4 12.8,6.5 15.5,6.5 13.5,8 14.3,10.5 12,9 9.7,10.5 10.5,8 8.5,6.5 11.2,6.5" fill="rgba(255,255,255,.9)"/>
+      <circle cx="3" cy="3" r="2" fill="rgba(255,255,255,.65)"/>
+      <path d="M22,5 A3.5,3.5 0 1,1 25.5,2.5 A2.2,2.2 0 1,0 22,5Z" fill="rgba(255,255,255,.75)"/>
+      <path d="M26,28 A3.5,3.5 0 1,1 29.5,25 A2.2,2.2 0 1,0 26,28Z" fill="rgba(255,255,255,.75)"/>`
+  },
+];
+
+function buildMotifGrid(){
+  const grid = document.getElementById('motifGrid');
+  grid.innerHTML = MOTIFS.map(m=>`
+    <div class="motif-btn${m.id===currentMotif?' active':''}" id="mbtn-${m.id}" onclick="setMotif('${m.id}')">
+      <div class="motif-preview">
+        <svg viewBox="0 0 48 34" xmlns="http://www.w3.org/2000/svg">${m.pre(accentColor)}</svg>
+      </div>
+      <div class="motif-label">${m.label}</div>
+    </div>`
+  ).join('');
+}
+
+function refreshMotifPreviews(){
+  MOTIFS.forEach(m=>{
+    const btn = document.getElementById(`mbtn-${m.id}`);
+    if(!btn) return;
+    const svg = btn.querySelector('svg');
+    if(svg) svg.innerHTML = m.pre(accentColor);
+  });
+}
+
+function setMotif(id){
+  const old = document.getElementById(`mbtn-${currentMotif}`);
+  if(old) old.classList.remove('active');
+  currentMotif = id;
+  const neu = document.getElementById(`mbtn-${id}`);
+  if(neu) neu.classList.add('active');
+  const motifSvg = document.getElementById('motifSvg');
+  const m = MOTIFS.find(x=>x.id===id);
+  motifSvg.innerHTML = m ? m.svg(accentColor) : '';
+}
+
+/* ════════════════════════════════════════
+   COLOR HANDLERS
+════════════════════════════════════════ */
+function onAccentChange(val){
+  accentColor = val;
+  document.getElementById('swAccent').style.background = val;
+  document.getElementById('clAccent').textContent = val;
+  document.getElementById('idEl').style.color = val;
+  const motifSvg = document.getElementById('motifSvg');
+  const m = MOTIFS.find(x=>x.id===currentMotif);
+  if(m) motifSvg.innerHTML = m.svg(val);
+  refreshMotifPreviews();
+  // sync preset highlight
+  document.querySelectorAll('#presetAccent .cp').forEach(cp=>{
+    cp.classList.toggle('active-preset', cp.getAttribute('onclick').includes(val));
+  });
+}
+
+function onBgColorChange(val){
+  bgColor = val;
+  bgImageData = null;
+  document.getElementById('swBg').style.background = val;
+  document.getElementById('clBg').textContent = val;
+  // border color stays as dark outline, not tied to bg color
+  // reset bg image state
+  rawImages.bg = null; croppedImages.bg = null;
+  const cropBtnBg = document.getElementById('cropBtnBg');
+  const uareaBg   = document.getElementById('uareaBg');
+  const delBtnBg  = document.getElementById('delBtnBg');
+  cropBtnBg.classList.remove('visible');
+  uareaBg.classList.add('no-crop');
+  if(delBtnBg) delBtnBg.style.display='none';
+  document.getElementById('bgLabel').textContent = 'Upload Background';
+  paintBgCanvas();
+  // sync preset highlight
+  document.querySelectorAll('#presetBg .cp').forEach(cp=>{
+    cp.classList.toggle('active-preset', cp.getAttribute('onclick').includes(val));
+  });
+}
+
+/* ════════════════════════════════════════
+   COLOR PRESETS & RESET
+════════════════════════════════════════ */
+const DEFAULT_ACCENT = '#ef4444';
+const DEFAULT_BG     = '#ffffff';
+
+function applyPresetAccent(hex){
+  accentColor = hex;
+  document.getElementById('colorAccent').value = hex;
+  document.getElementById('swAccent').style.background = hex;
+  document.getElementById('clAccent').textContent = hex;
+  document.getElementById('idEl').style.color = hex;
+  const m = MOTIFS.find(x=>x.id===currentMotif);
+  if(m) document.getElementById('motifSvg').innerHTML = m.svg(hex);
+  refreshMotifPreviews();
+  // update active preset dot
+  document.querySelectorAll('#presetAccent .cp').forEach(cp=>{
+    cp.classList.toggle('active-preset', cp.style.background === hexToRgb(hex) || cp.style.backgroundColor === hex || cp.getAttribute('onclick').includes(hex));
+  });
+}
+
+function applyPresetBg(hex){
+  bgColor = hex;
+  bgImageData = null;
+  document.getElementById('colorBg').value = hex;
+  document.getElementById('swBg').style.background = hex;
+  document.getElementById('clBg').textContent = hex;
+  // reset bg image state
+  rawImages.bg = null; croppedImages.bg = null;
+  const cropBtnBg = document.getElementById('cropBtnBg');
+  const uareaBg   = document.getElementById('uareaBg');
+  const delBtnBg  = document.getElementById('delBtnBg');
+  cropBtnBg.classList.remove('visible');
+  uareaBg.classList.add('no-crop');
+  if(delBtnBg) delBtnBg.style.display='none';
+  document.getElementById('bgLabel').textContent = 'Upload Background';
+  paintBgCanvas();
+  // update active preset dot
+  document.querySelectorAll('#presetBg .cp').forEach(cp=>{
+    cp.classList.toggle('active-preset', cp.getAttribute('onclick').includes(hex));
+  });
+}
+
+function resetAllColors(){
+  applyPresetAccent(DEFAULT_ACCENT);
+  applyPresetBg(DEFAULT_BG);
+}
+
+function hexToRgb(hex){
+  // helper - not critical, preset highlight uses onclick check instead
+  return hex;
+}
+
+/* ════════════════════════════════════════
+   DOWNLOAD
+════════════════════════════════════════ */
+async function downloadCard(){
+  const btn  = document.getElementById('dlBtn');
+  const card = document.getElementById('cardEl');
+  btn.textContent = '⏳ Memproses...';
+  btn.disabled = true;
+
+  // Pause animation + hide border for clean download
+  const origAnim   = card.style.animation;
+  const origBorder = card.style.border;
+  card.style.animation = 'none';
+  card.style.transform = 'none';
+  card.style.border    = 'none';
+  await new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));
+
+  try {
+    // Card intrinsic size (230 x 373 logic units)
+    const CARD_W = 230;
+    const CARD_H = 373;
+    // Target: 1080px height (HD) keeping card aspect ratio
+    const TARGET_H = 1080;
+    const TARGET_W = Math.round(TARGET_H * CARD_W / CARD_H); // ~668px
+    const SCALE = TARGET_H / CARD_H;
+
+    const out = document.createElement('canvas');
+    out.width  = TARGET_W;
+    out.height = TARGET_H;
+    const ctx  = out.getContext('2d');
+
+    // ── Layer 1: Background ──
+    // Use bgCanvas (already rendered correctly in preview) as source of truth
+    const bgCv = document.getElementById('bgCanvas');
+    if(bgImageData && bgCv.width > 0){
+      // Draw bgCanvas scaled up to TARGET size — exactly what user sees in preview
+      ctx.drawImage(bgCv, 0, 0, TARGET_W, TARGET_H);
+    } else if(bgImageData){
+      // Fallback: re-render with cover logic
+      await new Promise(res=>{
+        const img = new Image();
+        img.onload = ()=>{
+          const iw=img.naturalWidth, ih=img.naturalHeight;
+          const sc = Math.max(TARGET_W/iw, TARGET_H/ih);
+          const dw = iw*sc, dh = ih*sc;
+          ctx.drawImage(img, (TARGET_W-dw)/2, (TARGET_H-dh)/2, dw, dh);
+          res();
+        };
+        img.onerror = ()=>res();
+        img.src = bgImageData;
+      });
+    } else {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+    }
+
+    // ── Layer 2: Motif SVG ──
+    const motifSvg = document.getElementById('motifSvg');
+    // Clone and set explicit size for proper rendering
+    const svgClone = motifSvg.cloneNode(true);
+    svgClone.setAttribute('width',  TARGET_W);
+    svgClone.setAttribute('height', TARGET_H);
+    svgClone.setAttribute('viewBox', `0 0 ${CARD_W} ${CARD_H}`);
+    const svgStr  = new XMLSerializer().serializeToString(svgClone);
+    const svgBlob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+    const svgUrl  = URL.createObjectURL(svgBlob);
+    await new Promise(res=>{
+      const img = new Image();
+      img.onload = ()=>{ ctx.drawImage(img, 0, 0, TARGET_W, TARGET_H); URL.revokeObjectURL(svgUrl); res(); };
+      img.onerror = ()=>{ URL.revokeObjectURL(svgUrl); res(); };
+      img.src = svgUrl;
+    });
+
+    // ── Layer 3: Content (photo, name, id, qr, footer) via html2canvas ──
+    // Render entire card with html2canvas (transparent bg) at TARGET resolution
+    // This guarantees pixel-perfect alignment with the preview — no offset math needed
+    const cardDisplayW = card.offsetWidth;
+    const dispToLogic  = CARD_W / cardDisplayW;
+    const html2Scale   = SCALE * (1 / dispToLogic);
+
+    const cardCanvas = await html2canvas(card, {
+      scale: html2Scale,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      logging: false,
+      ignoreElements: el => el.id === 'bgCanvas' || el.id === 'motifSvg' || el.classList.contains('overlay')
+    });
+
+    // Draw card with rounded corners clip — matches card border-radius (18px logical → scaled)
+    const RADIUS = 18 * SCALE;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(RADIUS, 0);
+    ctx.lineTo(TARGET_W - RADIUS, 0);
+    ctx.quadraticCurveTo(TARGET_W, 0, TARGET_W, RADIUS);
+    ctx.lineTo(TARGET_W, TARGET_H - RADIUS);
+    ctx.quadraticCurveTo(TARGET_W, TARGET_H, TARGET_W - RADIUS, TARGET_H);
+    ctx.lineTo(RADIUS, TARGET_H);
+    ctx.quadraticCurveTo(0, TARGET_H, 0, TARGET_H - RADIUS);
+    ctx.lineTo(0, RADIUS);
+    ctx.quadraticCurveTo(0, 0, RADIUS, 0);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(cardCanvas, 0, 0, TARGET_W, TARGET_H);
+    ctx.restore();
+
+    // ── Export ──
+    const link = document.createElement('a');
+    link.download = 'kartu-absen-HD.png';
+    link.href = out.toDataURL('image/png');
+    link.click();
+
+  } catch(err){
+    console.error('Download error:', err);
+    alert('Gagal download, coba lagi. ('+err.message+')');
+  }
+
+  card.style.animation = origAnim;
+  card.style.border    = origBorder;
+  btn.textContent = '⬇ Download Kartu HD';
+  btn.disabled = false;
+}
+
+/* ════════════════════════════════════════
+   SPLASH CLOCK
+════════════════════════════════════════ */
+const DAYS   = ['MINGGU','SENIN','SELASA','RABU','KAMIS','JUMAT','SABTU'];
+const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function tickSplash(){
+  const n=new Date();
+  document.getElementById('splashTime').textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('splashDate').textContent = `${n.getDate()} ${MONTHS[n.getMonth()]} ${n.getFullYear()}`;
+  document.getElementById('splashDay').textContent  = DAYS[n.getDay()];
+}
+tickSplash();
+setInterval(tickSplash,1000);
+
+function enterApp(){
+  document.getElementById('splash').classList.add('out');
+  setTimeout(()=>{
+    document.getElementById('app').classList.add('show');
+    document.getElementById('supportFab').style.display='flex';
+    document.getElementById('gammascanCard').style.display='block';
+  },400);
+}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+buildMotifGrid();
+setMotif('original');
+paintBgCanvas();
+initCropDrag();
+// Sync id color and accent preset on load
+document.getElementById('idEl').style.color = accentColor;
+// Mark default presets as active on load
+document.querySelectorAll('#presetAccent .cp').forEach(cp=>{
+  cp.classList.toggle('active-preset', cp.getAttribute('onclick').includes(DEFAULT_ACCENT));
+});
+document.querySelectorAll('#presetBg .cp').forEach(cp=>{
+  cp.classList.toggle('active-preset', cp.getAttribute('onclick').includes(DEFAULT_BG));
+});
+</script>
+</body>
+</html>
